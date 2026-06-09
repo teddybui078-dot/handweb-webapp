@@ -195,6 +195,18 @@ export class WebSphere {
     this.group.position.set(x, y, z)
   }
 
+  /**
+   * Convert normalized-device coordinates (-1..1) to world coordinates on the
+   * z=0 plane, accounting for the camera FOV and aspect. Lets hand positions
+   * (in screen space) map onto where the orb should sit in the 3D scene.
+   */
+  ndcToWorld(ndcX, ndcY) {
+    const vFov = (this.camera.fov * Math.PI) / 180
+    const h = 2 * Math.tan(vFov / 2) * this.camera.position.z
+    const w = h * this.camera.aspect
+    return { x: ndcX * (w / 2), y: ndcY * (h / 2) }
+  }
+
   /** Set the web opacity (used during burst/reform fades). */
   setWebOpacity(o) {
     this.lines.material.opacity = o
