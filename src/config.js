@@ -50,4 +50,10 @@ export const CONFIG = {
   NET_POINT_SIZE: 11, // node sprite size
   NET_LINE_OPACITY: 0.32,
   NET_SMOOTHING: 0.35, // lerp toward the live hand-driven net each frame
+
+  // ---- Draw mode (pinch to draw with your fingertip) ----
+  DRAW_INK: '#1d1d1f', // Apple near-black ink
+  DRAW_WIDTH: 4, // stroke width (CSS px)
+  DRAW_SMOOTHING: 0.5, // fingertip position smoothing (0..1, higher = snappier)
+  DRAW_MIN_DIST: 1.5, // min px between recorded points (de-jitter)
 }

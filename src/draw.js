@@ -1,0 +1,125 @@
+// Draw mode — pinch to draw with your fingertip.
+//
+// Tracks the index fingertip of one hand and, while the hand is pinched
+// (thumb + index together = "pen down"), records a stroke that is rendered as
+// smooth black ink onto a full-screen 2D canvas. Releasing the pinch lifts the
+// pen; the Clear button wipes the canvas. A small ring cursor shows where the
+// pen is, filling in while you're drawing.
+
+import { CONFIG } from './config.js'
+
+const INDEX_TIP = 8
+
+export class FingerDraw {
+  constructor(canvas) {
+    this.canvas = canvas
+    this.ctx = canvas.getContext('2d')
+    this.dpr = Math.min(window.devicePixelRatio || 1, 2)
+
+    this.strokes = [] // committed strokes: array of [{x,y}, ...]
+    this.current = null // in-progress stroke while pinched
+    this.cursor = null // {x,y} fingertip, or null when no hand
+    this.pinching = false
+    this.smooth = null // smoothed fingertip position
+
+    this.resize()
+    window.addEventListener('resize', () => this.resize())
+  }
+
+  resize() {
+    this.w = window.innerWidth
+    this.h = window.innerHeight
+    this.canvas.width = this.w * this.dpr
+    this.canvas.height = this.h * this.dpr
+  }
+
+  clear() {
+    this.strokes = []
+    this.current = null
+  }
+
+  /**
+   * Feed one hand (or null). Mirrors x to match the flipped video, smooths the
+   * fingertip, and extends/commits strokes based on the pinch state.
+   */
+  update(hand) {
+    if (!hand) {
+      this._endStroke()
+      this.cursor = null
+      this.pinching = false
+      this.smooth = null
+      return
+    }
+
+    const tip = hand.landmarks[INDEX_TIP]
+    const x = (1 - tip.x) * this.w // mirror flip to match the displayed video
+    const y = tip.y * this.h
+
+    if (!this.smooth) this.smooth = { x, y }
+    else {
+      this.smooth.x += (x - this.smooth.x) * CONFIG.DRAW_SMOOTHING
+      this.smooth.y += (y - this.smooth.y) * CONFIG.DRAW_SMOOTHING
+    }
+    this.cursor = { x: this.smooth.x, y: this.smooth.y }
+    this.pinching = hand.isPinched
+
+    if (hand.isPinched) {
+      if (!this.current) {
+        this.current = []
+        this.strokes.push(this.current)
+      }
+      const last = this.current[this.current.length - 1]
+      if (!last || Math.hypot(this.cursor.x - last.x, this.cursor.y - last.y) > CONFIG.DRAW_MIN_DIST) {
+        this.current.push({ x: this.cursor.x, y: this.cursor.y })
+      }
+    } else {
+      this._endStroke()
+    }
+  }
+
+  _endStroke() {
+    // discard taps (single-point strokes) so they don't leave stray dots
+    if (this.current && this.current.length < 2) this.strokes.pop()
+    this.current = null
+  }
+
+  render() {
+    const ctx = this.ctx
+    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0)
+    ctx.clearRect(0, 0, this.w, this.h)
+    ctx.lineJoin = 'round'
+    ctx.lineCap = 'round'
+    ctx.strokeStyle = CONFIG.DRAW_INK
+    ctx.lineWidth = CONFIG.DRAW_WIDTH
+
+    for (const s of this.strokes) {
+      if (s.length < 2) continue
+      ctx.beginPath()
+      ctx.moveTo(s[0].x, s[0].y)
+      // smooth the polyline by curving through segment midpoints
+      for (let i = 1; i < s.length - 1; i++) {
+        const mx = (s[i].x + s[i + 1].x) / 2
+        const my = (s[i].y + s[i + 1].y) / 2
+        ctx.quadraticCurveTo(s[i].x, s[i].y, mx, my)
+      }
+      const end = s[s.length - 1]
+      ctx.lineTo(end.x, end.y)
+      ctx.stroke()
+    }
+
+    // fingertip cursor: ring when hovering, filled dot while drawing
+    if (this.cursor) {
+      ctx.beginPath()
+      ctx.arc(this.cursor.x, this.cursor.y, 9, 0, Math.PI * 2)
+      ctx.lineWidth = 2
+      ctx.strokeStyle = CONFIG.DRAW_INK
+      ctx.stroke()
+      if (this.pinching) {
+        ctx.beginPath()
+        ctx.arc(this.cursor.x, this.cursor.y, 4.5, 0, Math.PI * 2)
+        ctx.fillStyle = CONFIG.DRAW_INK
+        ctx.fill()
+      }
+    }
+  }
+}
