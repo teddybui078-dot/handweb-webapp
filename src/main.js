@@ -101,7 +101,7 @@ function loop() {
   sphere.setWorldPosition(curX, curY, 0)
   sphere.flushPoints()
   sphere.syncLines()
-  sphere.render(burst.isBursting ? 0 : 0.0015)
+  sphere.render(burst.isActive ? 0 : 0.0015)
 
   if (debug) drawDebug(debugCtx, hands, debugCanvas.width, debugCanvas.height)
 }
