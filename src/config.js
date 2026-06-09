@@ -41,4 +41,13 @@ export const CONFIG = {
 
   // ---- Camera / world ----
   CAMERA_Z: 6, // three.js camera distance
+
+  // ---- Web mode (net strung between the two hands) ----
+  NET_COLS: 14, // grid resolution across the gap (hand A -> hand B)
+  NET_ROWS: 8, // grid resolution along each hand (top -> bottom)
+  NET_SAG: 0.55, // how much the net bows downward at its center (world units)
+  NET_SHIMMER: 0.05, // per-node time-based wobble amplitude
+  NET_POINT_SIZE: 11, // node sprite size
+  NET_LINE_OPACITY: 0.32,
+  NET_SMOOTHING: 0.35, // lerp toward the live hand-driven net each frame
 }
