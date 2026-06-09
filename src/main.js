@@ -86,6 +86,10 @@ function loop() {
   if (flicked && !burst.isBursting) burst.trigger(sphere.positions, curRadius, now)
 
   const t = targetsFromHands(hands)
+  // Gentle "breathing" while idle and unmanned, so the orb feels alive.
+  if (hands.length === 0 && !burst.isActive) {
+    t.radius += Math.sin(now / 900) * 0.08
+  }
   curRadius = lerp(curRadius, t.radius, CONFIG.RADIUS_SMOOTHING)
 
   // The display video is mirrored, so flip x. Convert normalized screen coords

@@ -1,8 +1,6 @@
 # handweb
 
-A browser experiment where a glowing **particle web-sphere** floats over your webcam feed and you control it with your **hands**.
-
-![constellation web-sphere over a camera feed](#)
+A browser experiment where a glowing **particle web-sphere** floats over your webcam feed and you control it with your **hands** — no controller, no mouse, just gestures in front of the camera.
 
 ## What it does
 
