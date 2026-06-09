@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>handweb — particle web you control with your hands</title>
+    <style>
+      :root {
+        --violet: #b06bff;
+        --violet-deep: #6a2cc7;
+      }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 100%; height: 100%; overflow: hidden; background: #05030a; }
+      body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; }
+
+      /* Camera feed sits behind everything, mirrored so it feels like a mirror. */
+      #camera {
+        position: fixed; inset: 0;
+        width: 100%; height: 100%;
+        object-fit: cover;
+        transform: scaleX(-1);
+        background: #05030a;
+      }
+
+      /* The WebGL canvas overlays the feed; it is transparent so the video shows through. */
+      #scene {
+        position: fixed; inset: 0;
+        width: 100%; height: 100%;
+        pointer-events: none;
+      }
+
+      /* Permission / status overlay. */
+      #overlay {
+        position: fixed; inset: 0;
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
+        text-align: center; gap: 1.25rem;
+        background: radial-gradient(circle at 50% 40%, rgba(106, 44, 199, 0.25), rgba(5, 3, 10, 0.92));
+        color: #efe8ff;
+        z-index: 10;
+        transition: opacity 0.6s ease;
+      }
+      #overlay.hidden { opacity: 0; pointer-events: none; }
+      #overlay h1 {
+        font-size: clamp(1.6rem, 4vw, 2.6rem);
+        font-weight: 600; letter-spacing: -0.02em;
+        background: linear-gradient(120deg, #ffffff, var(--violet));
+        -webkit-background-clip: text; background-clip: text; color: transparent;
+      }
+      #overlay p { max-width: 32rem; line-height: 1.5; opacity: 0.8; font-size: 0.98rem; }
+      #start {
+        margin-top: 0.5rem; padding: 0.85rem 2rem;
+        font-size: 1rem; font-weight: 600; color: #fff;
+        background: linear-gradient(120deg, var(--violet), var(--violet-deep));
+        border: none; border-radius: 999px; cursor: pointer;
+        box-shadow: 0 8px 30px rgba(160, 90, 255, 0.4);
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+      }
+      #start:hover { transform: translateY(-2px); box-shadow: 0 12px 40px rgba(160, 90, 255, 0.55); }
+      #start:active { transform: translateY(0); }
+      #error { color: #ff9a9a; font-size: 0.9rem; min-height: 1.2rem; }
+
+      /* On-screen gesture hints, hidden until the experience is live. */
+      #hints {
+        position: fixed; left: 50%; bottom: 1.4rem; transform: translateX(-50%);
+        display: none; gap: 1.5rem;
+        padding: 0.7rem 1.3rem;
+        background: rgba(20, 10, 40, 0.45);
+        border: 1px solid rgba(176, 107, 255, 0.25);
+        border-radius: 999px; backdrop-filter: blur(10px);
+        color: #efe8ff; font-size: 0.82rem; z-index: 5;
+      }
+      #hints.show { display: flex; }
+      #hints span { opacity: 0.85; white-space: nowrap; }
+      #hints b { color: var(--violet); font-weight: 600; }
+    </style>
+  </head>
+  <body>
+    <video id="camera" autoplay playsinline muted></video>
+    <canvas id="scene"></canvas>
+
+    <div id="overlay">
+      <h1>handweb</h1>
+      <p>
+        Hold up <b>both hands</b> in front of your camera. Spread them apart to grow the orb,
+        bring them together to shrink it, and <b>flick a hand open</b> to make the particles erupt.
+      </p>
+      <button id="start">Enable camera</button>
+      <div id="error"></div>
+    </div>
+
+    <div id="hints">
+      <span><b>Spread hands</b> — grow</span>
+      <span><b>Hands together</b> — shrink</span>
+      <span><b>Flick open</b> — erupt</span>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
