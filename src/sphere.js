@@ -71,17 +71,18 @@ function buildEdges(base, n, k) {
   return edges
 }
 
-/** Soft circular glow sprite for the points. */
-function makeGlowTexture() {
+/** Soft circular glow sprite for the points (emerald falloff). Exported so the
+ *  web-net mode can reuse the exact same sparkle. */
+export function makeGlowTexture() {
   const size = 64
   const c = document.createElement('canvas')
   c.width = c.height = size
   const ctx = c.getContext('2d')
   const g = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2)
   g.addColorStop(0, 'rgba(255,255,255,1)')
-  g.addColorStop(0.25, 'rgba(255,255,255,0.85)')
-  g.addColorStop(0.5, 'rgba(200,150,255,0.35)')
-  g.addColorStop(1, 'rgba(160,90,255,0)')
+  g.addColorStop(0.25, 'rgba(210,255,235,0.85)')
+  g.addColorStop(0.5, 'rgba(120,240,180,0.35)')
+  g.addColorStop(1, 'rgba(46,230,166,0)')
   ctx.fillStyle = g
   ctx.fillRect(0, 0, size, size)
   const tex = new THREE.CanvasTexture(c)
@@ -116,7 +117,7 @@ export class WebSphere {
     const outer = new THREE.Color(CONFIG.COLOR_OUTER)
     const tmp = new THREE.Color()
     for (let i = 0; i < n; i++) {
-      // biased random mix gives sparkle variety, mostly violet with white pops
+      // biased random mix gives sparkle variety, mostly emerald with white pops
       const t = Math.pow(Math.random(), 2) * CONFIG.COLOR_MIX
       tmp.copy(outer).lerp(inner, t)
       colors[i * 3] = tmp.r
@@ -210,6 +211,17 @@ export class WebSphere {
   /** Set the web opacity (used during burst/reform fades). */
   setWebOpacity(o) {
     this.lines.material.opacity = o
+  }
+
+  /** Show or hide the whole orb (mode switching). */
+  setVisible(v) {
+    this.group.visible = v
+  }
+
+  /** Master fade applied on top of per-frame opacities (no-hands fade-out). */
+  applyMasterOpacity(m) {
+    this.points.material.opacity = m
+    this.lines.material.opacity *= m
   }
 
   /** Push the live positions buffer to the GPU. */

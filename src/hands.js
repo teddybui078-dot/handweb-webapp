@@ -197,8 +197,8 @@ export class FlickDetector {
  */
 export function drawDebug(ctx, hands, width, height) {
   ctx.clearRect(0, 0, width, height)
-  ctx.fillStyle = '#b06bff'
-  ctx.strokeStyle = 'rgba(176,107,255,0.5)'
+  ctx.fillStyle = '#34e89e'
+  ctx.strokeStyle = 'rgba(52,232,158,0.5)'
   ctx.lineWidth = 1.5
   for (const hand of hands) {
     for (const p of hand.landmarks) {
