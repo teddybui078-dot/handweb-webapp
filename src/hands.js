@@ -51,7 +51,7 @@ const FINGERS = [
  * Reduce one hand's 21 landmarks into the signals the app reacts to.
  * @param {Array<{x:number,y:number,z:number}>} lm 21 landmarks
  */
-export function analyzeHand(lm) {
+export function analyzeHand(lm, handedness = 'Unknown') {
   const wrist = lm[0]
   const middleMcp = lm[9]
 
@@ -70,6 +70,7 @@ export function analyzeHand(lm) {
   const pinchRatio = dist(lm[4], lm[8]) / handSpan
 
   return {
+    handedness,
     centroid,
     handSpan,
     extendedCount,
@@ -125,8 +126,66 @@ export class HandTracker {
     this.lastVideoTime = video.currentTime
 
     const result = this.landmarker.detectForVideo(video, timestampMs)
-    this.hands = (result?.landmarks || []).map(analyzeHand)
+    const lmSets = result?.landmarks || []
+    this.hands = lmSets.map((lm, i) =>
+      analyzeHand(lm, result?.handedness?.[i]?.[0]?.categoryName || `hand${i}`)
+    )
     return this.hands
+  }
+}
+
+// ---- flick detection -------------------------------------------------------
+
+/**
+ * Detects the "flick": a hand that was recently pinched/closed snapping open
+ * into a spread palm within FLICK_WINDOW_MS. State is kept per handedness so
+ * each hand can flick independently, and a global cooldown debounces repeats.
+ */
+export class FlickDetector {
+  constructor() {
+    this.pinchedAt = new Map() // handedness -> timestamp it was last closed
+    this.lastFlick = -Infinity
+  }
+
+  /**
+   * @returns {object|null} the hand that flicked this frame, or null
+   */
+  update(hands, now) {
+    let flicked = null
+    const present = new Set()
+
+    for (const hand of hands) {
+      present.add(hand.handedness)
+      const closed = hand.isPinched && hand.extendedCount <= 1
+
+      if (closed) {
+        this.pinchedAt.set(hand.handedness, now)
+      } else if (hand.isOpen) {
+        const since = this.pinchedAt.get(hand.handedness)
+        if (
+          since != null &&
+          now - since <= CONFIG.FLICK_WINDOW_MS &&
+          now - this.lastFlick >= CONFIG.BURST_COOLDOWN_MS
+        ) {
+          flicked = hand
+          this.lastFlick = now
+          this.pinchedAt.delete(hand.handedness)
+        }
+      }
+
+      // expire stale pinch memory
+      const t = this.pinchedAt.get(hand.handedness)
+      if (t != null && now - t > CONFIG.FLICK_WINDOW_MS) {
+        this.pinchedAt.delete(hand.handedness)
+      }
+    }
+
+    // forget hands that left the frame
+    for (const key of this.pinchedAt.keys()) {
+      if (!present.has(key)) this.pinchedAt.delete(key)
+    }
+
+    return flicked
   }
 }
 
