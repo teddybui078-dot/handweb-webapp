@@ -26,7 +26,7 @@ export const CONFIG = {
   DIST_MAX: 0.75, // hands spread wide
 
   // ---- Gesture detection ----
-  PINCH_THRESHOLD: 0.06, // thumb-index normalized distance to count as pinched
+  PINCH_THRESHOLD: 0.35, // thumb-index distance / hand-span ratio to count as pinched
   OPEN_FINGERS_REQUIRED: 4, // extended fingers to count as an open palm
   FLICK_WINDOW_MS: 450, // pinch -> open must happen within this window
   BURST_COOLDOWN_MS: 1200, // ignore repeat flicks during this period

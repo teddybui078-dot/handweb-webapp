@@ -1,15 +1,47 @@
 // handweb — entry point.
-// Camera stage: clicking "Enable camera" starts the mirrored webcam feed and
-// reveals the experience. Hand tracking and the particle web-sphere layer in
-// on top of this in subsequent features.
+// Camera + hand-tracking stage: starts the mirrored webcam, loads the
+// MediaPipe HandLandmarker, and runs a per-frame detection loop. Press "d" to
+// toggle a debug overlay of the tracked landmarks. The particle web-sphere
+// layers onto this loop in the next feature.
 
 import { startCamera } from './camera.js'
+import { HandTracker, drawDebug } from './hands.js'
 
 const overlay = document.getElementById('overlay')
 const startBtn = document.getElementById('start')
 const errorEl = document.getElementById('error')
 const hints = document.getElementById('hints')
 const video = document.getElementById('camera')
+
+const tracker = new HandTracker()
+let debug = false
+
+// 2D canvas overlay used only for the debug landmark view.
+const debugCanvas = document.createElement('canvas')
+debugCanvas.style.cssText =
+  'position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:4;display:none'
+document.body.appendChild(debugCanvas)
+const debugCtx = debugCanvas.getContext('2d')
+
+function resize() {
+  debugCanvas.width = window.innerWidth
+  debugCanvas.height = window.innerHeight
+}
+window.addEventListener('resize', resize)
+resize()
+
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'd') {
+    debug = !debug
+    debugCanvas.style.display = debug ? 'block' : 'none'
+  }
+})
+
+function loop() {
+  requestAnimationFrame(loop)
+  const hands = tracker.detect(video, performance.now())
+  if (debug) drawDebug(debugCtx, hands, debugCanvas.width, debugCanvas.height)
+}
 
 async function begin() {
   startBtn.disabled = true
@@ -18,6 +50,8 @@ async function begin() {
 
   try {
     await startCamera(video)
+    startBtn.textContent = 'Loading hand tracking…'
+    await tracker.init()
   } catch (err) {
     errorEl.textContent = err.message || String(err)
     startBtn.disabled = false
@@ -27,7 +61,8 @@ async function begin() {
 
   overlay.classList.add('hidden')
   hints.classList.add('show')
-  console.log('[handweb] camera live:', video.videoWidth, 'x', video.videoHeight)
+  console.log('[handweb] camera + hand tracking live')
+  loop()
 }
 
 startBtn.addEventListener('click', begin)
