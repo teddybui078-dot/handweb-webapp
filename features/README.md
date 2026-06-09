@@ -12,11 +12,23 @@ Each feature shipped as its own commit. Source modules live in [`../src`](../src
 | 6 | Flick burst | `hands.js`, `physics.js` | Pinch→open flick erupts the particles outward |
 | 7 | Auto-reform | `physics.js` | Particles spring back into the web-sphere, web fades in |
 | 8 | Polish | all | Idle breathing, gesture hints, docs, reusable gesture skill |
+| 9 | Emerald recolor | `config.js`, `sphere.js`, `hands.js` | Violet → emerald green across particles, web, glow, debug |
+| 10 | Web mode + dashboard | `webnet.js`, `main.js`, `index.html` | Dashboard with two modes, a net strung between the hands, back button, "No hands detected" state |
+
+## Modes
+
+- **🌐 Orb** — the constellation web-sphere (features 4–7).
+- **🕸️ Web** — a living net strung between your two hands (`webnet.js`); grips each
+  hand fingertip→wrist and stretches/tilts as you move, with a center sag + shimmer.
+
+Both modes require **both hands**; with fewer, a "No hands detected" badge shows and
+the visualization fades out.
 
 ## Gesture → effect
 
-- **Two hands spread / together** → orb grows / shrinks (`RADIUS_MIN..RADIUS_MAX`)
-- **Flick a hand open** (pinch → spread palm) → eruption, then auto-reform
+- **Orb — two hands spread / together** → orb grows / shrinks (`RADIUS_MIN..RADIUS_MAX`)
+- **Orb — flick a hand open** (pinch → spread palm) → eruption, then auto-reform
+- **Web — two hands spread / together** → the net stretches / gathers
 
 The gesture math is documented as a reusable skill: [`.claude/skills/mediapipe-hand-gestures`](../.claude/skills/mediapipe-hand-gestures/SKILL.md).
 
