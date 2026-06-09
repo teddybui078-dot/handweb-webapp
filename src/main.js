@@ -6,14 +6,18 @@
 
 import { startCamera } from './camera.js'
 import { HandTracker, drawDebug } from './hands.js'
+import { WebSphere } from './sphere.js'
+import { CONFIG } from './config.js'
 
 const overlay = document.getElementById('overlay')
 const startBtn = document.getElementById('start')
 const errorEl = document.getElementById('error')
 const hints = document.getElementById('hints')
 const video = document.getElementById('camera')
+const sceneCanvas = document.getElementById('scene')
 
 const tracker = new HandTracker()
+const sphere = new WebSphere(sceneCanvas)
 let debug = false
 
 // 2D canvas overlay used only for the debug landmark view.
@@ -40,6 +44,14 @@ window.addEventListener('keydown', (e) => {
 function loop() {
   requestAnimationFrame(loop)
   const hands = tracker.detect(video, performance.now())
+
+  // Feature 4: render a gently rotating web-sphere at the default radius,
+  // centered on screen. Hand-driven radius/position arrives in the next feature.
+  sphere.applyRadius(CONFIG.RADIUS_DEFAULT)
+  sphere.flushPoints()
+  sphere.syncLines()
+  sphere.render(0.0015)
+
   if (debug) drawDebug(debugCtx, hands, debugCanvas.width, debugCanvas.height)
 }
 
@@ -62,7 +74,10 @@ async function begin() {
   overlay.classList.add('hidden')
   hints.classList.add('show')
   console.log('[handweb] camera + hand tracking live')
-  loop()
 }
 
 startBtn.addEventListener('click', begin)
+
+// Render the idle web-sphere immediately (behind the overlay). tracker.detect()
+// safely no-ops until the camera + landmarker are started by begin().
+loop()
