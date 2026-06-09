@@ -197,8 +197,8 @@ export class FlickDetector {
  */
 export function drawDebug(ctx, hands, width, height) {
   ctx.clearRect(0, 0, width, height)
-  ctx.fillStyle = '#34e89e'
-  ctx.strokeStyle = 'rgba(52,232,158,0.5)'
+  ctx.fillStyle = '#ffffff'
+  ctx.strokeStyle = 'rgba(255,255,255,0.5)'
   ctx.lineWidth = 1.5
   for (const hand of hands) {
     for (const p of hand.landmarks) {
@@ -211,7 +211,7 @@ export function drawDebug(ctx, hands, width, height) {
     // centroid marker
     const cx = (1 - hand.centroid.x) * width
     const cy = hand.centroid.y * height
-    ctx.strokeStyle = hand.isOpen ? '#8affc1' : '#ffffff'
+    ctx.strokeStyle = hand.isOpen ? 'rgba(255,255,255,0.6)' : '#ffffff'
     ctx.beginPath()
     ctx.arc(cx, cy, 10, 0, Math.PI * 2)
     ctx.stroke()

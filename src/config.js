@@ -4,15 +4,15 @@ export const CONFIG = {
   // ---- Particles ----
   PARTICLE_COUNT: 4000, // points on the sphere shell
   PARTICLE_SIZE: 9, // base sprite size (px-ish, scaled by renderer)
-  // emerald -> white ramp
+  // monochrome: soft gray -> white ramp (twinkle without color)
   COLOR_INNER: '#ffffff',
-  COLOR_OUTER: '#2ee6a6',
-  COLOR_MIX: 0.55, // 0 = all outer, 1 = all inner
+  COLOR_OUTER: '#cfcfcf',
+  COLOR_MIX: 0.6, // 0 = all outer, 1 = all inner
 
   // ---- Web (constellation) lines ----
   WEB_NEIGHBORS: 3, // edges per particle (k-nearest on the base sphere)
-  WEB_OPACITY: 0.18,
-  WEB_COLOR: '#34e89e',
+  WEB_OPACITY: 0.16,
+  WEB_COLOR: '#ffffff',
 
   // ---- Sphere sizing (world units) ----
   RADIUS_MIN: 0.7, // hands together
