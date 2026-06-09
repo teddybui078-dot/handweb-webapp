@@ -3,14 +3,16 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>handweb — particle web you control with your hands</title>
+    <title>handweb — control particles with your hands</title>
     <style>
       :root {
-        --violet: #b06bff;
-        --violet-deep: #6a2cc7;
+        --emerald: #2ee6a6;
+        --emerald-bright: #5dffc4;
+        --emerald-deep: #0f9d6a;
+        --ink: #03100b;
       }
       * { margin: 0; padding: 0; box-sizing: border-box; }
-      html, body { width: 100%; height: 100%; overflow: hidden; background: #05030a; }
+      html, body { width: 100%; height: 100%; overflow: hidden; background: var(--ink); }
       body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; }
 
       /* Camera feed sits behind everything, mirrored so it feels like a mirror. */
@@ -19,81 +21,133 @@
         width: 100%; height: 100%;
         object-fit: cover;
         transform: scaleX(-1);
-        background: #05030a;
+        background: var(--ink);
       }
 
-      /* The WebGL canvas overlays the feed; it is transparent so the video shows through. */
+      /* The WebGL canvas overlays the feed; transparent so the video shows through. */
       #scene {
         position: fixed; inset: 0;
         width: 100%; height: 100%;
         pointer-events: none;
       }
 
-      /* Permission / status overlay. */
-      #overlay {
+      /* ---------- Dashboard ---------- */
+      #dashboard {
         position: fixed; inset: 0;
         display: flex; flex-direction: column;
         align-items: center; justify-content: center;
-        text-align: center; gap: 1.25rem;
-        background: radial-gradient(circle at 50% 40%, rgba(106, 44, 199, 0.25), rgba(5, 3, 10, 0.92));
-        color: #efe8ff;
-        z-index: 10;
-        transition: opacity 0.6s ease;
+        gap: 2rem; text-align: center;
+        padding: 2rem;
+        background: radial-gradient(circle at 50% 38%, rgba(46, 230, 166, 0.18), rgba(3, 16, 11, 0.94));
+        color: #e8fff5; z-index: 10;
+        transition: opacity 0.5s ease;
       }
-      #overlay.hidden { opacity: 0; pointer-events: none; }
-      #overlay h1 {
-        font-size: clamp(1.6rem, 4vw, 2.6rem);
-        font-weight: 600; letter-spacing: -0.02em;
-        background: linear-gradient(120deg, #ffffff, var(--violet));
+      #dashboard.hidden { opacity: 0; pointer-events: none; }
+      #dashboard h1 {
+        font-size: clamp(2rem, 6vw, 3.4rem);
+        font-weight: 700; letter-spacing: -0.03em;
+        background: linear-gradient(120deg, #ffffff, var(--emerald));
         -webkit-background-clip: text; background-clip: text; color: transparent;
       }
-      #overlay p { max-width: 32rem; line-height: 1.5; opacity: 0.8; font-size: 0.98rem; }
-      #start {
-        margin-top: 0.5rem; padding: 0.85rem 2rem;
-        font-size: 1rem; font-weight: 600; color: #fff;
-        background: linear-gradient(120deg, var(--violet), var(--violet-deep));
-        border: none; border-radius: 999px; cursor: pointer;
-        box-shadow: 0 8px 30px rgba(160, 90, 255, 0.4);
-        transition: transform 0.15s ease, box-shadow 0.15s ease;
+      #dashboard .sub { max-width: 34rem; line-height: 1.5; opacity: 0.75; font-size: 1rem; margin-top: -1rem; }
+
+      .cards { display: flex; gap: 1.5rem; flex-wrap: wrap; justify-content: center; }
+      .card {
+        width: 16rem; max-width: 80vw;
+        padding: 1.8rem 1.6rem; text-align: left;
+        background: rgba(13, 40, 30, 0.55);
+        border: 1px solid rgba(46, 230, 166, 0.28);
+        border-radius: 1.25rem; cursor: pointer;
+        backdrop-filter: blur(12px);
+        transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
       }
-      #start:hover { transform: translateY(-2px); box-shadow: 0 12px 40px rgba(160, 90, 255, 0.55); }
-      #start:active { transform: translateY(0); }
+      .card:hover {
+        transform: translateY(-6px);
+        border-color: var(--emerald);
+        box-shadow: 0 18px 50px rgba(46, 230, 166, 0.28);
+      }
+      .card .glyph { font-size: 2.2rem; line-height: 1; margin-bottom: 0.9rem; }
+      .card h2 {
+        font-size: 1.25rem; font-weight: 600; margin-bottom: 0.4rem;
+        color: var(--emerald-bright);
+      }
+      .card p { font-size: 0.9rem; line-height: 1.45; opacity: 0.8; }
       #error { color: #ff9a9a; font-size: 0.9rem; min-height: 1.2rem; }
 
-      /* On-screen gesture hints, hidden until the experience is live. */
+      /* ---------- In-experience chrome ---------- */
+      #back {
+        position: fixed; top: 1.1rem; left: 1.1rem;
+        display: none; align-items: center; gap: 0.4rem;
+        padding: 0.55rem 1.1rem;
+        font-size: 0.85rem; font-weight: 600; color: #e8fff5;
+        background: rgba(13, 40, 30, 0.5);
+        border: 1px solid rgba(46, 230, 166, 0.3);
+        border-radius: 999px; cursor: pointer; z-index: 8;
+        backdrop-filter: blur(10px);
+        transition: border-color 0.15s ease, transform 0.15s ease;
+      }
+      #back:hover { border-color: var(--emerald); transform: translateX(-2px); }
+      #back.show { display: flex; }
+
+      #nohands {
+        position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
+        display: none; flex-direction: column; align-items: center; gap: 0.5rem;
+        padding: 1.1rem 1.8rem; text-align: center;
+        background: rgba(13, 40, 30, 0.5);
+        border: 1px solid rgba(46, 230, 166, 0.3);
+        border-radius: 1rem; backdrop-filter: blur(10px);
+        color: #e8fff5; z-index: 6;
+      }
+      #nohands.show { display: flex; }
+      #nohands b { font-size: 1.05rem; color: var(--emerald-bright); }
+      #nohands span { font-size: 0.85rem; opacity: 0.75; }
+
       #hints {
         position: fixed; left: 50%; bottom: 1.4rem; transform: translateX(-50%);
         display: none; gap: 1.5rem;
         padding: 0.7rem 1.3rem;
-        background: rgba(20, 10, 40, 0.45);
-        border: 1px solid rgba(176, 107, 255, 0.25);
+        background: rgba(13, 40, 30, 0.45);
+        border: 1px solid rgba(46, 230, 166, 0.25);
         border-radius: 999px; backdrop-filter: blur(10px);
-        color: #efe8ff; font-size: 0.82rem; z-index: 5;
+        color: #e8fff5; font-size: 0.82rem; z-index: 5;
       }
       #hints.show { display: flex; }
       #hints span { opacity: 0.85; white-space: nowrap; }
-      #hints b { color: var(--violet); font-weight: 600; }
+      #hints b { color: var(--emerald); font-weight: 600; }
     </style>
   </head>
   <body>
     <video id="camera" autoplay playsinline muted></video>
     <canvas id="scene"></canvas>
 
-    <div id="overlay">
+    <!-- Landing dashboard: choose an experience -->
+    <div id="dashboard">
       <h1>handweb</h1>
-      <p>
-        Hold up <b>both hands</b> in front of your camera. Spread them apart to grow the orb,
-        bring them together to shrink it, and <b>flick a hand open</b> to make the particles erupt.
-      </p>
-      <button id="start">Enable camera</button>
+      <p class="sub">Control glowing particles with your hands in front of the camera. Pick an experience.</p>
+      <div class="cards">
+        <div class="card" id="card-orb" role="button" tabindex="0">
+          <div class="glyph">🌐</div>
+          <h2>Orb</h2>
+          <p>A constellation sphere you grow, shrink, and shatter with a flick of your hand.</p>
+        </div>
+        <div class="card" id="card-web" role="button" tabindex="0">
+          <div class="glyph">🕸️</div>
+          <h2>Web</h2>
+          <p>A living net strung between your two hands that stretches and flexes as you move.</p>
+        </div>
+      </div>
       <div id="error"></div>
     </div>
 
-    <div id="hints">
-      <span><b>Spread hands</b> — grow</span>
-      <span><b>Hands together</b> — shrink</span>
-      <span><b>Flick open</b> — erupt</span>
+    <!-- In-experience chrome -->
+    <button id="back">‹ Back</button>
+
+    <div id="nohands">
+      <b>No hands detected</b>
+      <span>Show <b>both hands</b> to the camera</span>
     </div>
+
+    <div id="hints"></div>
 
     <script type="module" src="/src/main.js"></script>
   </body>

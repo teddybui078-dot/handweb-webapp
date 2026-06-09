@@ -1,12 +1,20 @@
-// handweb — entry point.
-// Camera + hand-tracking stage: starts the mirrored webcam, loads the
-// MediaPipe HandLandmarker, and runs a per-frame detection loop. Press "d" to
-// toggle a debug overlay of the tracked landmarks. The particle web-sphere
-// layers onto this loop in the next feature.
+// handweb — app controller.
+//
+// Flow: a landing dashboard offers two experiences. Picking one starts the
+// camera + MediaPipe hand tracking (once) and switches the render loop into
+// that mode; a Back button returns to the dashboard. Both modes require BOTH
+// hands — when fewer are visible they show a "No hands detected" badge and fade
+// the visualization out.
+//
+//   • Orb — the constellation web-sphere (grow / shrink / flick-to-erupt)
+//   • Web — a living net strung between the two hands
+//
+// Press "d" for a debug overlay of the tracked landmarks.
 
 import { startCamera } from './camera.js'
 import { HandTracker, FlickDetector, drawDebug, handDistance, handsMidpoint } from './hands.js'
 import { WebSphere } from './sphere.js'
+import { WebNet } from './webnet.js'
 import { BurstSystem } from './physics.js'
 import { CONFIG } from './config.js'
 
@@ -15,34 +23,52 @@ const lerp = (a, b, t) => a + (b - a) * t
 const mapRange = (v, inLo, inHi, outLo, outHi) =>
   outLo + ((clamp(v, inLo, inHi) - inLo) / (inHi - inLo)) * (outHi - outLo)
 
-const overlay = document.getElementById('overlay')
-const startBtn = document.getElementById('start')
+// ---- DOM ----
+const dashboard = document.getElementById('dashboard')
+const cardOrb = document.getElementById('card-orb')
+const cardWeb = document.getElementById('card-web')
 const errorEl = document.getElementById('error')
+const backBtn = document.getElementById('back')
+const noHands = document.getElementById('nohands')
 const hints = document.getElementById('hints')
 const video = document.getElementById('camera')
 const sceneCanvas = document.getElementById('scene')
 
+const HINTS = {
+  orb: '<span><b>Spread hands</b> — grow</span><span><b>Hands together</b> — shrink</span><span><b>Flick open</b> — erupt</span>',
+  web: '<span><b>Move hands apart</b> — stretch the web</span><span><b>Together</b> — gather it in</span>',
+}
+
+// ---- core systems ----
 const tracker = new HandTracker()
 const sphere = new WebSphere(sceneCanvas)
+const webnet = new WebNet(sphere)
 const flick = new FlickDetector()
 const burst = new BurstSystem(sphere.count, sphere.base)
+
+let mode = 'dashboard' // 'dashboard' | 'orb' | 'web'
+let started = false // camera + tracker initialized
 let debug = false
 let lastFrame = performance.now()
 
-// 2D canvas overlay used only for the debug landmark view.
+// smoothed orb state
+let curRadius = CONFIG.RADIUS_DEFAULT
+let curX = 0
+let curY = 0
+let vizOpacity = 1 // master fade for the active visualization
+
+// ---- debug landmark overlay ----
 const debugCanvas = document.createElement('canvas')
 debugCanvas.style.cssText =
   'position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:4;display:none'
 document.body.appendChild(debugCanvas)
 const debugCtx = debugCanvas.getContext('2d')
-
 function resize() {
   debugCanvas.width = window.innerWidth
   debugCanvas.height = window.innerHeight
 }
 window.addEventListener('resize', resize)
 resize()
-
 window.addEventListener('keydown', (e) => {
   if (e.key === 'd') {
     debug = !debug
@@ -50,92 +76,134 @@ window.addEventListener('keydown', (e) => {
   }
 })
 
-// Smoothed orb state, eased toward hand-driven targets each frame.
-let curRadius = CONFIG.RADIUS_DEFAULT
-let curX = 0
-let curY = 0
+// ---- mode navigation ----
+async function ensureStarted() {
+  if (started) return true
+  try {
+    await startCamera(video)
+    await tracker.init()
+    started = true
+    return true
+  } catch (err) {
+    errorEl.textContent = err.message || String(err)
+    return false
+  }
+}
 
-/**
- * Turn the tracked hands into a target radius + screen position.
- * Two hands → distance sets size, midpoint sets position.
- * One hand → follow it, hold size. No hands → drift back to center/default.
- */
-function targetsFromHands(hands) {
-  if (hands.length >= 2) {
-    const d = handDistance(hands[0], hands[1])
-    const radius = mapRange(d, CONFIG.DIST_MIN, CONFIG.DIST_MAX, CONFIG.RADIUS_MIN, CONFIG.RADIUS_MAX)
-    const mid = handsMidpoint(hands[0], hands[1])
-    return { radius, nx: mid.x, ny: mid.y }
+async function enterMode(m, card) {
+  errorEl.textContent = ''
+  if (card) card.style.opacity = '0.6'
+  const ok = await ensureStarted()
+  if (card) card.style.opacity = ''
+  if (!ok) return
+
+  mode = m
+  vizOpacity = 0 // fade the chosen visualization in
+  dashboard.classList.add('hidden')
+  backBtn.classList.add('show')
+  hints.innerHTML = HINTS[m]
+  hints.classList.add('show')
+  sphere.setVisible(m === 'orb')
+  webnet.setVisible(m === 'web')
+  if (m === 'web') webnet.reset()
+}
+
+function exitToDashboard() {
+  mode = 'dashboard'
+  dashboard.classList.remove('hidden')
+  backBtn.classList.remove('show')
+  hints.classList.remove('show')
+  noHands.classList.remove('show')
+  // idle orb returns as the dashboard backdrop
+  sphere.setVisible(true)
+  webnet.setVisible(false)
+}
+
+cardOrb.addEventListener('click', () => enterMode('orb', cardOrb))
+cardWeb.addEventListener('click', () => enterMode('web', cardWeb))
+backBtn.addEventListener('click', exitToDashboard)
+// keyboard activation for the cards
+for (const [card, m] of [[cardOrb, 'orb'], [cardWeb, 'web']]) {
+  card.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      enterMode(m, card)
+    }
+  })
+}
+
+// ---- orb helpers ----
+/** Two-hand distance → radius, midpoint → screen position. */
+function orbTargets(hands) {
+  const d = handDistance(hands[0], hands[1])
+  const radius = mapRange(d, CONFIG.DIST_MIN, CONFIG.DIST_MAX, CONFIG.RADIUS_MIN, CONFIG.RADIUS_MAX)
+  const mid = handsMidpoint(hands[0], hands[1])
+  return { radius, nx: mid.x, ny: mid.y }
+}
+
+function updateOrb(hands, handsPresent, now, dt) {
+  let targetRadius = curRadius
+
+  if (mode === 'dashboard') {
+    // gentle breathing backdrop, centered
+    targetRadius = CONFIG.RADIUS_DEFAULT + Math.sin(now / 900) * 0.08
+    curX = lerp(curX, 0, CONFIG.POSITION_SMOOTHING)
+    curY = lerp(curY, 0, CONFIG.POSITION_SMOOTHING)
+    vizOpacity = lerp(vizOpacity, 1, 0.1)
+  } else if (handsPresent) {
+    const flicked = flick.update(hands, now)
+    if (flicked && !burst.isBursting) burst.trigger(sphere.positions, curRadius, now)
+    const t = orbTargets(hands)
+    targetRadius = t.radius
+    const ndcX = (1 - t.nx) * 2 - 1
+    const ndcY = -(t.ny * 2 - 1)
+    const world = sphere.ndcToWorld(ndcX, ndcY)
+    curX = lerp(curX, world.x, CONFIG.POSITION_SMOOTHING)
+    curY = lerp(curY, world.y, CONFIG.POSITION_SMOOTHING)
+    vizOpacity = lerp(vizOpacity, 1, 0.15)
+  } else {
+    // orb mode, no hands → hold place and fade out
+    vizOpacity = lerp(vizOpacity, 0, 0.15)
   }
-  if (hands.length === 1) {
-    return { radius: curRadius, nx: hands[0].centroid.x, ny: hands[0].centroid.y }
-  }
-  return { radius: CONFIG.RADIUS_DEFAULT, nx: 0.5, ny: 0.5 }
+
+  curRadius = lerp(curRadius, targetRadius, CONFIG.RADIUS_SMOOTHING)
+  burst.update(sphere, curRadius, now, dt)
+  sphere.setWorldPosition(curX, curY, 0)
+  sphere.flushPoints()
+  sphere.syncLines()
+  sphere.applyMasterOpacity(vizOpacity)
+  sphere.render(burst.isActive ? 0 : 0.0015)
+}
+
+function updateWeb(hands, handsPresent, now, dt) {
+  vizOpacity = lerp(vizOpacity, handsPresent ? 1 : 0, 0.15)
+  if (handsPresent) webnet.update(hands, now, dt)
+  webnet.applyMasterOpacity(vizOpacity)
+  sphere.render(0) // draws the scene (the visible web group)
 }
 
 function loop() {
   requestAnimationFrame(loop)
   const now = performance.now()
-  const dt = Math.min((now - lastFrame) / 1000, 0.05) // clamp big gaps
+  const dt = Math.min((now - lastFrame) / 1000, 0.05)
   lastFrame = now
 
   const hands = tracker.detect(video, now)
+  const handsPresent = hands.length >= 2
 
-  // A flick erupts the orb (ignored while already bursting).
-  const flicked = flick.update(hands, now)
-  if (flicked && !burst.isBursting) burst.trigger(sphere.positions, curRadius, now)
+  // "No hands detected" only matters inside an experience.
+  const inExperience = mode === 'orb' || mode === 'web'
+  noHands.classList.toggle('show', inExperience && !handsPresent)
 
-  const t = targetsFromHands(hands)
-  // Gentle "breathing" while idle and unmanned, so the orb feels alive.
-  if (hands.length === 0 && !burst.isActive) {
-    t.radius += Math.sin(now / 900) * 0.08
-  }
-  curRadius = lerp(curRadius, t.radius, CONFIG.RADIUS_SMOOTHING)
-
-  // The display video is mirrored, so flip x. Convert normalized screen coords
-  // to NDC, then to world space on the z=0 plane.
-  const ndcX = (1 - t.nx) * 2 - 1
-  const ndcY = -(t.ny * 2 - 1)
-  const world = sphere.ndcToWorld(ndcX, ndcY)
-  curX = lerp(curX, world.x, CONFIG.POSITION_SMOOTHING)
-  curY = lerp(curY, world.y, CONFIG.POSITION_SMOOTHING)
-
-  // Physics owns the particle positions (idle scaling vs. burst integration).
-  burst.update(sphere, curRadius, now, dt)
-  sphere.setWorldPosition(curX, curY, 0)
-  sphere.flushPoints()
-  sphere.syncLines()
-  sphere.render(burst.isActive ? 0 : 0.0015)
+  if (mode === 'web') updateWeb(hands, handsPresent, now, dt)
+  else updateOrb(hands, handsPresent, now, dt)
 
   if (debug) drawDebug(debugCtx, hands, debugCanvas.width, debugCanvas.height)
 }
 
-async function begin() {
-  startBtn.disabled = true
-  errorEl.textContent = ''
-  startBtn.textContent = 'Starting…'
+// Debug hook (window.__handweb) for triggering bursts / inspecting state.
+window.__handweb = { sphere, webnet, burst, flick, tracker, enterMode, exitToDashboard }
 
-  try {
-    await startCamera(video)
-    startBtn.textContent = 'Loading hand tracking…'
-    await tracker.init()
-  } catch (err) {
-    errorEl.textContent = err.message || String(err)
-    startBtn.disabled = false
-    startBtn.textContent = 'Enable camera'
-    return
-  }
-
-  overlay.classList.add('hidden')
-  hints.classList.add('show')
-  console.log('[handweb] camera + hand tracking live')
-}
-
-startBtn.addEventListener('click', begin)
-
-// Debug hook: lets you trigger a burst from the console (window.__handweb).
-window.__handweb = { sphere, burst, flick, tracker }
-
-// Render the idle web-sphere immediately (behind the overlay). tracker.detect()
-// safely no-ops until the camera + landmarker are started by begin().
+// Idle orb renders immediately as the dashboard backdrop; detection no-ops
+// until a mode is chosen and the camera + landmarker start.
 loop()
