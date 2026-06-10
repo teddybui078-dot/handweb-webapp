@@ -15,7 +15,6 @@ import { startCamera } from './camera.js'
 import { HandTracker, PinchSnapDetector, drawDebug, drawHandSkeleton, handDistance, handsMidpoint } from './hands.js'
 import { WebSphere } from './sphere.js'
 import { WebNet } from './webnet.js'
-import { FingerDraw } from './draw.js'
 import { BurstSystem } from './physics.js'
 import { CONFIG } from './config.js'
 
@@ -28,29 +27,23 @@ const mapRange = (v, inLo, inHi, outLo, outHi) =>
 const dashboard = document.getElementById('dashboard')
 const cardOrb = document.getElementById('card-orb')
 const cardWeb = document.getElementById('card-web')
-const cardDraw = document.getElementById('card-draw')
 const errorEl = document.getElementById('error')
 const backBtn = document.getElementById('back')
-const clearBtn = document.getElementById('clear')
 const noHands = document.getElementById('nohands')
 const noHandsText = noHands.querySelector('span')
 const hints = document.getElementById('hints')
 const video = document.getElementById('camera')
 const sceneCanvas = document.getElementById('scene')
-const scrim = document.getElementById('scrim')
-const drawCanvas = document.getElementById('draw')
 
 const HINTS = {
   orb: '<span><b>Move finger</b> — spin</span><span><b>Two hands apart / together</b> — size</span><span><b>Pinch &amp; snap</b> — erupt</span>',
   web: '<span><b>Move hands apart</b> — stretch the web</span><span><b>Together</b> — gather it in</span>',
-  draw: '<span><b>Pinch</b> to draw</span><span><b>Release</b> to lift the pen</span><span><b>Clear</b> to reset</span>',
 }
 
 // ---- core systems ----
 const tracker = new HandTracker()
 const sphere = new WebSphere(sceneCanvas)
 const webnet = new WebNet(sphere)
-const draw = new FingerDraw(drawCanvas)
 const pinchSnap = new PinchSnapDetector()
 const burst = new BurstSystem(sphere.count, sphere.base)
 
@@ -117,7 +110,6 @@ async function enterMode(m, card) {
   if (!ok) return
 
   mode = m
-  const isDraw = m === 'draw'
   vizOpacity = 0 // fade the chosen visualization in
   dashboard.classList.add('hidden')
   backBtn.classList.add('show')
@@ -125,25 +117,18 @@ async function enterMode(m, card) {
   hints.classList.add('show')
   sphere.setVisible(m === 'orb')
   webnet.setVisible(m === 'web')
-  scrim.classList.toggle('show', isDraw)
-  drawCanvas.classList.toggle('show', isDraw)
-  clearBtn.classList.toggle('show', isDraw)
   noHandsText.textContent = m === 'web'
     ? 'Show both hands to the camera'
     : 'Show your hand to the camera'
   if (m === 'web') webnet.reset()
-  if (isDraw) draw.clear()
 }
 
 function exitToDashboard() {
   mode = 'dashboard'
   dashboard.classList.remove('hidden')
   backBtn.classList.remove('show')
-  clearBtn.classList.remove('show')
   hints.classList.remove('show')
   noHands.classList.remove('show')
-  scrim.classList.remove('show')
-  drawCanvas.classList.remove('show')
   // idle orb returns as the dashboard backdrop
   sphere.setVisible(true)
   webnet.setVisible(false)
@@ -151,11 +136,9 @@ function exitToDashboard() {
 
 cardOrb.addEventListener('click', () => enterMode('orb', cardOrb))
 cardWeb.addEventListener('click', () => enterMode('web', cardWeb))
-cardDraw.addEventListener('click', () => enterMode('draw', cardDraw))
-clearBtn.addEventListener('click', () => draw.clear())
 backBtn.addEventListener('click', exitToDashboard)
 // keyboard activation for the cards
-for (const [card, m] of [[cardOrb, 'orb'], [cardWeb, 'web'], [cardDraw, 'draw']]) {
+for (const [card, m] of [[cardOrb, 'orb'], [cardWeb, 'web']]) {
   card.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault()
@@ -246,12 +229,6 @@ function updateWeb(hands, handsPresent, now, dt) {
   sphere.render(0) // draws the scene (the visible web group)
 }
 
-function updateDraw(hands, handsPresent) {
-  draw.update(handsPresent ? hands[0] : null)
-  draw.render()
-  sphere.render(0) // keep the particle canvas cleared behind the scrim
-}
-
 function loop() {
   requestAnimationFrame(loop)
   const now = performance.now()
@@ -259,7 +236,7 @@ function loop() {
   lastFrame = now
 
   const hands = tracker.detect(video, now)
-  // Web needs both hands; Orb and Draw work with one.
+  // Web needs both hands; Orb works with one.
   const need = mode === 'web' ? 2 : 1
   const handsPresent = hands.length >= need
 
@@ -267,8 +244,7 @@ function loop() {
   const inExperience = mode !== 'dashboard'
   noHands.classList.toggle('show', inExperience && !handsPresent)
 
-  if (mode === 'draw') updateDraw(hands, handsPresent)
-  else if (mode === 'web') updateWeb(hands, handsPresent, now, dt)
+  if (mode === 'web') updateWeb(hands, handsPresent, now, dt)
   else updateOrb(hands, handsPresent, now, dt)
 
   // Wire the detected fingers with a skeleton in Orb / Web; clear otherwise.
@@ -282,7 +258,7 @@ function loop() {
 }
 
 // Debug hook (window.__handweb) for triggering bursts / inspecting state.
-window.__handweb = { sphere, webnet, draw, burst, pinchSnap, tracker, enterMode, exitToDashboard }
+window.__handweb = { sphere, webnet, burst, pinchSnap, tracker, enterMode, exitToDashboard }
 
 // Idle orb renders immediately as the dashboard backdrop; detection no-ops
 // until a mode is chosen and the camera + landmarker start.

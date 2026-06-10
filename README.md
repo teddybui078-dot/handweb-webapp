@@ -1,6 +1,6 @@
 # handweb
 
-A browser experiment where glowing **white light** tracks your **hands** over the webcam feed — no controller, no mouse, just gestures in front of the camera. A minimal, black-and-white **dashboard** lets you pick between three experiences.
+A browser experiment where glowing **white light** tracks your **hands** over the webcam feed — no controller, no mouse, just gestures in front of the camera. A minimal, black-and-white **dashboard** lets you pick between two experiences.
 
 ## What it does
 
@@ -12,14 +12,11 @@ Open the app and pick a mode. If the camera can't see the hands a mode needs, a 
 - **Pinch and snap your fingers open** (a quick, aggressive thumb-index pinch then release) → the particles **erupt** outward, drift, then **auto-reform** back into the sphere.
 
 **Web** — a 3D spider web is spun between your two hands (needs both hands).
-- Your ten fingertips are the anchor points; **radial spokes** run from a central hub out to each, with **concentric rings** weaving between them. A wave travels outward so the whole web **undulates in 3D**, and it stretches and reshapes as you move your hands.
-
-**Draw** — sketch in the air with one hand.
-- **Fully pinch** your thumb and index together to put the "pen" down and draw; **release** to lift it. A ring cursor shows where the pen is. Strokes **auto-straighten** on release — a near-straight scribble snaps to a clean line. Tap **Clear** to wipe the canvas.
+- Your ten fingertips are the anchor points; **radial spokes** run from a central hub out to each (with extra interpolated spokes between them), and **concentric rings** weave between them. The web is alive — spokes **swirl** into spirals, rings **breathe** in and out, and a wave travels outward so it **undulates in 3D** — and it stretches and reshapes as you move your hands.
 
 In **Orb** and **Web**, the detected hands are traced with a glowing white **wireframe skeleton** so you can see exactly what's being tracked.
 
-A **Back** button returns to the dashboard at any time. The whole interface is a clean, Apple-style black-and-white: white UI, near-black text, white light over the feed, black ink in Draw.
+A **Back** button returns to the dashboard at any time. The whole interface is a clean, Apple-style black-and-white: white UI, near-black text, white light over the feed.
 
 Built with **Three.js** (rendering) and **MediaPipe Tasks Vision** (`HandLandmarker`) for real-time two-hand tracking, bundled with **Vite**. No backend, no data leaves your machine — the camera stream is processed entirely in the browser.
 
@@ -44,12 +41,10 @@ npm run preview  # preview the production build
 | Orb | Move your index finger | Spin the orb (swipe, with inertia) |
 | Orb | Two hands, spread apart / together | Grow / shrink the sphere |
 | Orb | Pinch & snap your fingers open (fast) | Erupt the particles |
-| Web | Move both hands apart / together | Stretch / gather the net |
-| Draw | **Fully** pinch (thumb + index) and move | Draw black ink; release to lift the pen |
-| Draw | Tap **Clear** | Wipe the canvas |
+| Web | Move both hands apart / together | Stretch / reshape the web |
 | Any | Required hand(s) not visible | "No hands detected" — viz fades out |
 
-Orb and Draw work with **one hand**; Web needs **both**.
+Orb works with **one hand**; Web needs **both**.
 
 Press **`d`** in any mode to toggle a debug overlay of the tracked landmarks.
 
@@ -61,10 +56,9 @@ src/
   camera.js   webcam capture + mirrored background + permission handling
   hands.js    MediaPipe HandLandmarker wrapper + gesture math
   sphere.js   Orb mode — Three.js particle points + web/constellation lines
-  webnet.js   Web mode — a living net strung between the two hands
-  draw.js     Draw mode — pinch-to-draw finger drawing on a 2D canvas
+  webnet.js   Web mode — an animated 3D spider web strung between the two hands
   physics.js  Orb burst / reform state machine
-  config.js   all tunables (particle count, colors, radius range, gesture / net / draw params)
+  config.js   all tunables (particle count, colors, radius range, gesture / web params)
 ```
 
 ## Credits

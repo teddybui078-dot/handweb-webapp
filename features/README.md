@@ -19,15 +19,15 @@ Each feature shipped as its own commit. Source modules live in [`../src`](../src
 | 13 | Orb gesture rework | `config.js`, `hands.js`, `main.js`, `draw.js` | Denser eruption (8k particles), pinch-snap trigger, finger-swipe spin (one-hand orb), full-pinch-only draw |
 | 14 | Splatter + straighten + skeleton | `config.js`, `draw.js`, `hands.js`, `main.js` | Wider burst splatter, Draw auto-straighten (RDP), white hand-skeleton overlay in Orb/Web |
 | 15 | Glowing draw stroke + spider web | `config.js`, `draw.js`, `index.html`, `webnet.js` | Bigger glowing-white/black-outlined pen; Web rebuilt as a rippling 3D spider web (spokes + rings to fingertips) |
+| 16 | Remove Draw + animate web | `main.js`, `index.html`, `webnet.js`, `config.js` | Drop Draw mode entirely; add swirl + ring-breathing + denser spokes to the Web |
 
 ## Modes
 
 - **Orb** — the constellation web-sphere (features 4–7); needs both hands.
-- **Web** — a 3D spider web spun between your two hands (`webnet.js`); radial
-  spokes from a hub to all ten fingertips, concentric rings between them, and an
-  outward-travelling ripple so it undulates in depth. Needs both hands.
-- **Draw** — pinch-to-draw with one hand (`draw.js`); black ink on a frosted canvas
-  over the feed, with a ring cursor and a Clear button.
+- **Web** — an animated 3D spider web spun between your two hands (`webnet.js`);
+  radial spokes (plus interpolated extras) from a hub to all ten fingertips,
+  concentric rings between them, with swirl, ring-breathing, and an outward ripple
+  so it constantly undulates. Needs both hands.
 
 If a mode's required hand(s) aren't visible, a "No hands detected" badge shows and
 the visualization fades out.
@@ -37,8 +37,7 @@ the visualization fades out.
 - **Orb — move your index finger** → spin the orb (swipe-to-rotate, with inertia)
 - **Orb — two hands spread / together** → orb grows / shrinks (`RADIUS_MIN..RADIUS_MAX`)
 - **Orb — pinch & snap your fingers open** (fast) → eruption, then auto-reform
-- **Web — two hands spread / together** → the net stretches / gathers
-- **Draw — full pinch + move** → black ink stroke; release lifts the pen; **Clear** wipes
+- **Web — two hands spread / together** → the web stretches / reshapes (and is always swirling, breathing, and rippling)
 
 The gesture math is documented as a reusable skill: [`.claude/skills/mediapipe-hand-gestures`](../.claude/skills/mediapipe-hand-gestures/SKILL.md).
 

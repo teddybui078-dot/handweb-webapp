@@ -151,14 +151,32 @@ export class WebNet {
     for (let s = 0; s < this.spokes; s++) {
       const anchor = anchors[s]
       const spokePhase = (s / this.spokes) * Math.PI * 2
+      const offX0 = anchor.x - hx
+      const offY0 = anchor.y - hy
       for (let r = 0; r < this.rings; r++) {
         const f = (r + 1) / this.rings // 0→1 along the spoke (hub→fingertip)
         const i = 1 + s * this.rings + r
+        // envelope: 0 at the hub and the fingertip, 1 mid-spoke — keeps the web
+        // anchored to both ends while the middle is free to animate
+        const env = Math.sin(f * Math.PI)
+
+        // swirl: rotate the offset around the hub, winding the spokes into
+        // spirals that oscillate back and forth over time
+        const swirl = Math.sin(t * CONFIG.NET_SWIRL_SPEED + spokePhase) * CONFIG.NET_SWIRL_AMP * env
+        const cs = Math.cos(swirl)
+        const sn = Math.sin(swirl)
+        const offX = offX0 * cs - offY0 * sn
+        const offY = offX0 * sn + offY0 * cs
+
+        // radial breathing of the rings (zero at the anchored ends)
+        const ff = f + Math.sin(t * CONFIG.NET_PULSE_SPEED - f * 3 + spokePhase) * CONFIG.NET_PULSE_AMP * env
+
         // wave travels outward along the spoke (z-depth), fading in toward hub
         const z = Math.sin(f * Math.PI * CONFIG.NET_WAVES - t * CONFIG.NET_WAVE_SPEED + spokePhase) * CONFIG.NET_WAVE_AMP * f
         const sh = Math.sin(t * 1.7 + this.phase[i]) * CONFIG.NET_SHIMMER
-        tgt[i * 3] = hx + (anchor.x - hx) * f + sh
-        tgt[i * 3 + 1] = hy + (anchor.y - hy) * f + sh
+
+        tgt[i * 3] = hx + offX * ff + sh
+        tgt[i * 3 + 1] = hy + offY * ff + sh
         tgt[i * 3 + 2] = z
       }
     }

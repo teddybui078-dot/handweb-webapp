@@ -55,24 +55,17 @@ export const CONFIG = {
   // ---- Web mode (a 3D spider web strung between the two hands) ----
   NET_RINGS: 11, // concentric rings from the hub out to each fingertip (denser web)
   NET_SUBSPOKES: 2, // interpolated spokes inserted between each fingertip pair (more spokes)
-  NET_WAVE_AMP: 0.55, // z-depth ripple amplitude (world units) — makes it undulate
-  NET_WAVE_SPEED: 2.4, // how fast the ripple travels outward
-  NET_WAVES: 2, // number of wave crests along each spoke
-  NET_SHIMMER: 0.04, // small per-node xy wiggle
+  NET_WAVE_AMP: 0.7, // z-depth ripple amplitude (world units) — makes it undulate
+  NET_WAVE_SPEED: 2.6, // how fast the ripple travels outward
+  NET_WAVES: 2.5, // number of wave crests along each spoke
+  NET_SHIMMER: 0.05, // small per-node xy wiggle
+  NET_SWIRL_AMP: 0.6, // mid-spoke twist (radians) — spokes wind/unwind over time
+  NET_SWIRL_SPEED: 1.1, // swirl oscillation speed
+  NET_PULSE_AMP: 0.07, // radial breathing of the rings
+  NET_PULSE_SPEED: 1.7, // breathing speed
   NET_POINT_SIZE: 13, // node sprite size
   NET_LINE_OPACITY: 0.5, // strand brightness
   NET_SMOOTHING: 0.3, // lerp toward the live hand-driven web each frame
-
-  // ---- Draw mode (pinch to draw with your fingertip) ----
-  DRAW_WIDTH: 15, // white core stroke width (CSS px)
-  DRAW_OUTLINE: 3, // black outline thickness on each side of the core
-  DRAW_GLOW: 30, // white glow blur radius (bigger glowing halo)
-  DRAW_CORE_COLOR: '#ffffff', // white inside
-  DRAW_OUTLINE_COLOR: '#000000', // black outline
-  DRAW_SMOOTHING: 0.5, // fingertip position smoothing (0..1, higher = snappier)
-  DRAW_MIN_DIST: 1.5, // min px between recorded points (de-jitter)
-  DRAW_PINCH: 0.13, // require a tight FULL pinch (ratio below this) to put the pen down
-  DRAW_STRAIGHTEN: 12, // px tolerance: on release, straighten the stroke (RDP epsilon)
 
   // ---- Hand skeleton overlay (Orb / Web modes) ----
   HAND_LINE_OPACITY: 0.85,
