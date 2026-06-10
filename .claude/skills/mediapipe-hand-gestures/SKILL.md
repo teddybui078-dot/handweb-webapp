@@ -43,23 +43,32 @@ With two hands present:
 
 Always smooth with a per-frame lerp (`cur = lerp(cur, target, k)`) — raw landmarks jitter.
 
-## Flick = temporal state machine (not a single frame)
+## Pinch-snap = temporal state machine (not a single frame)
 
-A flick is *pinch/closed → open palm within a time window*. It needs memory across frames, keyed by **handedness** (`result.handedness[i][0].categoryName`, `"Left"`/`"Right"`) so each hand fires independently:
+A "snap" is an *aggressive full pinch → release within a short window*. It needs memory across frames, keyed by **handedness** (`result.handedness[i][0].categoryName`, `"Left"`/`"Right"`) so each hand fires independently. The short window is what makes it read as aggressive — a slow pinch/release won't fire:
 
 ```
 per frame, per hand:
-  closed = isPinched && extendedCount <= 1
-  if closed:            pinchedAt[handedness] = now
-  else if isOpen:
-      if pinchedAt set AND now - pinchedAt <= FLICK_WINDOW_MS
-                       AND now - lastFlick   >= COOLDOWN_MS:
-          FLICK!  lastFlick = now;  clear pinchedAt[handedness]
-  expire pinchedAt older than FLICK_WINDOW_MS
+  if pinchRatio < PINCH_CLOSE:           // a full pinch
+      if pinchedAt unset: pinchedAt[handedness] = now
+  else if pinchRatio > PINCH_OPEN:       // released
+      if pinchedAt set AND now - pinchedAt <= SNAP_WINDOW_MS
+                       AND now - lastBurst >= COOLDOWN_MS:
+          SNAP!  lastBurst = now
+      clear pinchedAt[handedness]
+  expire pinchedAt older than SNAP_WINDOW_MS
   drop handedness keys not present this frame
 ```
 
-Tunables that matter: `FLICK_WINDOW_MS` (~450), `COOLDOWN_MS` (~1200 — debounce repeats), `PINCH_THRESHOLD` (ratio ~0.35).
+Tunables that matter: `PINCH_CLOSE` (~0.26 ratio = full pinch), `PINCH_OPEN` (~0.55 = released), `SNAP_WINDOW_MS` (~320 — fast = aggressive), `COOLDOWN_MS` (~1000 — debounce repeats).
+
+## Swipe-to-spin (fingertip velocity, not pointing)
+
+To rotate an object by "moving your finger around", drive rotation from the index
+fingertip's *screen velocity*, not its pointing vector (a raised hand's pointing
+vector barely changes as you move it). Low-pass the velocity into a spin rate and
+let it coast: `rate = rate*damp + (Δtip/Δt)*gain*(1-damp)`, apply `rate*dt` per
+frame. Δx → yaw, Δy → pitch. `damp = base**(dt*60)` keeps it frame-rate independent.
 
 ## Setup gotchas
 

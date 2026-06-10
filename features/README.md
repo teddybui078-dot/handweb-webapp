@@ -16,6 +16,7 @@ Each feature shipped as its own commit. Source modules live in [`../src`](../src
 | 10 | Web mode + dashboard | `webnet.js`, `main.js`, `index.html` | Dashboard with modes, a net strung between the hands, back button, "No hands detected" state |
 | 11 | Monochrome Apple rebrand | `config.js`, `sphere.js`, `index.html` | Black-and-white minimal UI; white light over the feed |
 | 12 | Draw mode | `draw.js`, `main.js`, `index.html` | Pinch-to-draw black ink with your fingertip + Clear |
+| 13 | Orb gesture rework | `config.js`, `hands.js`, `main.js`, `draw.js` | Denser eruption (8k particles), pinch-snap trigger, finger-swipe spin (one-hand orb), full-pinch-only draw |
 
 ## Modes
 
@@ -31,10 +32,11 @@ the visualization fades out.
 
 ## Gesture → effect
 
+- **Orb — move your index finger** → spin the orb (swipe-to-rotate, with inertia)
 - **Orb — two hands spread / together** → orb grows / shrinks (`RADIUS_MIN..RADIUS_MAX`)
-- **Orb — flick a hand open** (pinch → spread palm) → eruption, then auto-reform
+- **Orb — pinch & snap your fingers open** (fast) → eruption, then auto-reform
 - **Web — two hands spread / together** → the net stretches / gathers
-- **Draw — pinch + move** → black ink stroke; release lifts the pen; **Clear** wipes
+- **Draw — full pinch + move** → black ink stroke; release lifts the pen; **Clear** wipes
 
 The gesture math is documented as a reusable skill: [`.claude/skills/mediapipe-hand-gestures`](../.claude/skills/mediapipe-hand-gestures/SKILL.md).
 
