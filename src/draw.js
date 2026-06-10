@@ -10,6 +10,40 @@ import { CONFIG } from './config.js'
 
 const INDEX_TIP = 8
 
+/** Perpendicular distance from point p to the line through a–b. */
+function perpDist(p, a, b) {
+  const dx = b.x - a.x
+  const dy = b.y - a.y
+  const len = Math.hypot(dx, dy) || 1
+  return Math.abs((p.x - a.x) * dy - (p.y - a.y) * dx) / len
+}
+
+/**
+ * Ramer–Douglas–Peucker simplification: drops points that sit within `eps` of
+ * the line between their neighbours. A near-straight scribble collapses to a
+ * clean 2-point line; corners are kept — i.e. it auto-straightens the stroke.
+ */
+function straighten(pts, eps) {
+  if (pts.length < 3) return pts.slice()
+  let dmax = 0
+  let idx = 0
+  const a = pts[0]
+  const b = pts[pts.length - 1]
+  for (let i = 1; i < pts.length - 1; i++) {
+    const d = perpDist(pts[i], a, b)
+    if (d > dmax) {
+      dmax = d
+      idx = i
+    }
+  }
+  if (dmax > eps) {
+    const left = straighten(pts.slice(0, idx + 1), eps)
+    const right = straighten(pts.slice(idx), eps)
+    return left.slice(0, -1).concat(right)
+  }
+  return [a, b]
+}
+
 export class FingerDraw {
   constructor(canvas) {
     this.canvas = canvas
@@ -79,8 +113,15 @@ export class FingerDraw {
   }
 
   _endStroke() {
-    // discard taps (single-point strokes) so they don't leave stray dots
-    if (this.current && this.current.length < 2) this.strokes.pop()
+    if (this.current) {
+      if (this.current.length < 2) {
+        // discard taps (single-point strokes) so they don't leave stray dots
+        this.strokes.pop()
+      } else {
+        // auto-straighten the finished stroke
+        this.strokes[this.strokes.length - 1] = straighten(this.current, CONFIG.DRAW_STRAIGHTEN)
+      }
+    }
     this.current = null
   }
 
@@ -97,14 +138,18 @@ export class FingerDraw {
       if (s.length < 2) continue
       ctx.beginPath()
       ctx.moveTo(s[0].x, s[0].y)
-      // smooth the polyline by curving through segment midpoints
-      for (let i = 1; i < s.length - 1; i++) {
-        const mx = (s[i].x + s[i + 1].x) / 2
-        const my = (s[i].y + s[i + 1].y) / 2
-        ctx.quadraticCurveTo(s[i].x, s[i].y, mx, my)
+      if (s === this.current) {
+        // in-progress: smooth the polyline by curving through segment midpoints
+        for (let i = 1; i < s.length - 1; i++) {
+          const mx = (s[i].x + s[i + 1].x) / 2
+          const my = (s[i].y + s[i + 1].y) / 2
+          ctx.quadraticCurveTo(s[i].x, s[i].y, mx, my)
+        }
+        ctx.lineTo(s[s.length - 1].x, s[s.length - 1].y)
+      } else {
+        // finished + straightened: clean straight segments
+        for (let i = 1; i < s.length; i++) ctx.lineTo(s[i].x, s[i].y)
       }
-      const end = s[s.length - 1]
-      ctx.lineTo(end.x, end.y)
       ctx.stroke()
     }
 

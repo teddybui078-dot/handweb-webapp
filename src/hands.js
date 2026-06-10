@@ -192,6 +192,50 @@ export class PinchSnapDetector {
   }
 }
 
+// ---- hand skeleton overlay -------------------------------------------------
+
+// Standard MediaPipe hand bone connections (pairs of landmark indices).
+const HAND_CONNECTIONS = [
+  [0, 1], [1, 2], [2, 3], [3, 4], // thumb
+  [0, 5], [5, 6], [6, 7], [7, 8], // index
+  [5, 9], [9, 10], [10, 11], [11, 12], // middle
+  [9, 13], [13, 14], [14, 15], [15, 16], // ring
+  [13, 17], [17, 18], [18, 19], [19, 20], // pinky
+  [0, 17], // palm base
+]
+
+/**
+ * Draw the white wireframe skeleton (bones + joints) of each tracked hand onto
+ * a 2D canvas, mirrored to match the flipped video. Used in Orb / Web modes so
+ * the detected fingers are visibly "wired".
+ */
+export function drawHandSkeleton(ctx, hands, width, height) {
+  ctx.clearRect(0, 0, width, height)
+  ctx.lineWidth = CONFIG.HAND_LINE_WIDTH
+  ctx.lineJoin = 'round'
+  ctx.lineCap = 'round'
+  ctx.strokeStyle = `rgba(255,255,255,${CONFIG.HAND_LINE_OPACITY})`
+  ctx.fillStyle = '#ffffff'
+  ctx.shadowColor = 'rgba(255,255,255,0.6)'
+  ctx.shadowBlur = 6
+
+  for (const hand of hands) {
+    const lm = hand.landmarks
+    ctx.beginPath()
+    for (const [a, b] of HAND_CONNECTIONS) {
+      ctx.moveTo((1 - lm[a].x) * width, lm[a].y * height)
+      ctx.lineTo((1 - lm[b].x) * width, lm[b].y * height)
+    }
+    ctx.stroke()
+    for (const p of lm) {
+      ctx.beginPath()
+      ctx.arc((1 - p.x) * width, p.y * height, CONFIG.HAND_JOINT_SIZE, 0, Math.PI * 2)
+      ctx.fill()
+    }
+  }
+  ctx.shadowBlur = 0
+}
+
 // ---- debug overlay ---------------------------------------------------------
 
 /**

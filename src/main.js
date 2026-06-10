@@ -12,7 +12,7 @@
 // Press "d" for a debug overlay of the tracked landmarks.
 
 import { startCamera } from './camera.js'
-import { HandTracker, PinchSnapDetector, drawDebug, handDistance, handsMidpoint } from './hands.js'
+import { HandTracker, PinchSnapDetector, drawDebug, drawHandSkeleton, handDistance, handsMidpoint } from './hands.js'
 import { WebSphere } from './sphere.js'
 import { WebNet } from './webnet.js'
 import { FingerDraw } from './draw.js'
@@ -69,6 +69,13 @@ let rotRateY = 0 // rad/s (yaw)
 let prevTipX = null // last index-fingertip screen position (for velocity)
 let prevTipY = null
 
+// ---- always-on hand skeleton overlay (Orb / Web) ----
+const handCanvas = document.createElement('canvas')
+handCanvas.style.cssText =
+  'position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:4'
+document.body.appendChild(handCanvas)
+const handCtx = handCanvas.getContext('2d')
+
 // ---- debug landmark overlay ----
 const debugCanvas = document.createElement('canvas')
 debugCanvas.style.cssText =
@@ -76,8 +83,8 @@ debugCanvas.style.cssText =
 document.body.appendChild(debugCanvas)
 const debugCtx = debugCanvas.getContext('2d')
 function resize() {
-  debugCanvas.width = window.innerWidth
-  debugCanvas.height = window.innerHeight
+  handCanvas.width = debugCanvas.width = window.innerWidth
+  handCanvas.height = debugCanvas.height = window.innerHeight
 }
 window.addEventListener('resize', resize)
 resize()
@@ -263,6 +270,13 @@ function loop() {
   if (mode === 'draw') updateDraw(hands, handsPresent)
   else if (mode === 'web') updateWeb(hands, handsPresent, now, dt)
   else updateOrb(hands, handsPresent, now, dt)
+
+  // Wire the detected fingers with a skeleton in Orb / Web; clear otherwise.
+  if (mode === 'orb' || mode === 'web') {
+    drawHandSkeleton(handCtx, hands, handCanvas.width, handCanvas.height)
+  } else {
+    handCtx.clearRect(0, 0, handCanvas.width, handCanvas.height)
+  }
 
   if (debug) drawDebug(debugCtx, hands, debugCanvas.width, debugCanvas.height)
 }
