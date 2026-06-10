@@ -196,6 +196,12 @@ export class WebSphere {
     this.group.position.set(x, y, z)
   }
 
+  /** Spin the orb by deltas (radians) — pitch around X, yaw around Y. */
+  addRotation(dx, dy) {
+    this.group.rotation.x += dx
+    this.group.rotation.y += dy
+  }
+
   /**
    * Convert normalized-device coordinates (-1..1) to world coordinates on the
    * z=0 plane, accounting for the camera FOV and aspect. Lets hand positions

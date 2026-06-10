@@ -64,6 +64,8 @@ let curRadius = CONFIG.RADIUS_DEFAULT
 let curX = 0
 let curY = 0
 let vizOpacity = 1 // master fade for the active visualization
+let rotVelX = 0 // smoothed finger-driven spin (pitch)
+let rotVelY = 0 // smoothed finger-driven spin (yaw)
 
 // ---- debug landmark overlay ----
 const debugCanvas = document.createElement('canvas')
@@ -162,8 +164,19 @@ function orbTargets(hands) {
   return { radius, nx: mid.x, ny: mid.y }
 }
 
+/** Index-finger pointing direction in screen space (x mirrored), normalized. */
+function fingerPointing(hand) {
+  const mcp = hand.landmarks[5]
+  const tip = hand.landmarks[8]
+  let px = -(tip.x - mcp.x) // mirror x to match the flipped video
+  let py = tip.y - mcp.y
+  const len = Math.hypot(px, py) || 1
+  return { x: px / len, y: py / len }
+}
+
 function updateOrb(hands, handsPresent, now, dt) {
   let targetRadius = curRadius
+  let pointing = null
 
   if (mode === 'dashboard') {
     // gentle breathing backdrop, centered
@@ -182,18 +195,29 @@ function updateOrb(hands, handsPresent, now, dt) {
     curX = lerp(curX, world.x, CONFIG.POSITION_SMOOTHING)
     curY = lerp(curY, world.y, CONFIG.POSITION_SMOOTHING)
     vizOpacity = lerp(vizOpacity, 1, 0.15)
+    // point your finger to spin the orb that way (paused mid-burst)
+    if (!burst.isActive) pointing = fingerPointing(hands[0])
   } else {
     // orb mode, no hands → hold place and fade out
     vizOpacity = lerp(vizOpacity, 0, 0.15)
   }
 
+  // Finger pointing → spin: yaw follows left/right, pitch follows up/down.
+  const targetVelX = pointing ? pointing.y * CONFIG.ROT_SPEED : 0
+  const targetVelY = pointing ? pointing.x * CONFIG.ROT_SPEED : 0
+  rotVelX = lerp(rotVelX, targetVelX, CONFIG.ROT_SMOOTHING)
+  rotVelY = lerp(rotVelY, targetVelY, CONFIG.ROT_SMOOTHING)
+
   curRadius = lerp(curRadius, targetRadius, CONFIG.RADIUS_SMOOTHING)
   burst.update(sphere, curRadius, now, dt)
   sphere.setWorldPosition(curX, curY, 0)
+  // frame-rate-independent spin (rotVel is calibrated per 1/60s)
+  if (mode !== 'dashboard') sphere.addRotation(rotVelX * dt * 60, rotVelY * dt * 60)
   sphere.flushPoints()
   sphere.syncLines()
   sphere.applyMasterOpacity(vizOpacity)
-  sphere.render(burst.isActive ? 0 : 0.0015)
+  // dashboard keeps a gentle auto-spin; in-experience spin is finger-driven
+  sphere.render(mode === 'dashboard' ? CONFIG.ROT_IDLE : 0)
 }
 
 function updateWeb(hands, handsPresent, now, dt) {

@@ -15,11 +15,16 @@ export const CONFIG = {
   WEB_COLOR: '#ffffff',
 
   // ---- Sphere sizing (world units) ----
-  RADIUS_MIN: 0.7, // hands together
-  RADIUS_MAX: 2.6, // hands fully spread
-  RADIUS_DEFAULT: 1.4, // when fewer than two hands are visible
+  RADIUS_MIN: 0.45, // hands together
+  RADIUS_MAX: 1.9, // hands fully spread
+  RADIUS_DEFAULT: 0.85, // starting size / when fewer than two hands are visible
   RADIUS_SMOOTHING: 0.12, // lerp factor toward target radius each frame
   POSITION_SMOOTHING: 0.18, // lerp factor toward target screen position
+
+  // ---- Orb rotation driven by the index finger's pointing direction ----
+  ROT_SPEED: 0.035, // max spin per frame when the finger points fully one way
+  ROT_SMOOTHING: 0.1, // lerp factor toward the finger-driven spin each frame
+  ROT_IDLE: 0.0015, // gentle auto-spin on the dashboard backdrop
 
   // Map normalized hand-distance [DIST_MIN, DIST_MAX] -> [RADIUS_MIN, RADIUS_MAX]
   DIST_MIN: 0.12, // hands basically touching (fraction of frame width)
