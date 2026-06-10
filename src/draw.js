@@ -125,47 +125,60 @@ export class FingerDraw {
     this.current = null
   }
 
+  /** Build a Path2D for a stroke (smoothed while live, straight when finished). */
+  _strokePath(s) {
+    const path = new Path2D()
+    path.moveTo(s[0].x, s[0].y)
+    if (s === this.current) {
+      for (let i = 1; i < s.length - 1; i++) {
+        const mx = (s[i].x + s[i + 1].x) / 2
+        const my = (s[i].y + s[i + 1].y) / 2
+        path.quadraticCurveTo(s[i].x, s[i].y, mx, my)
+      }
+      path.lineTo(s[s.length - 1].x, s[s.length - 1].y)
+    } else {
+      for (let i = 1; i < s.length; i++) path.lineTo(s[i].x, s[i].y)
+    }
+    return path
+  }
+
   render() {
     const ctx = this.ctx
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0)
     ctx.clearRect(0, 0, this.w, this.h)
     ctx.lineJoin = 'round'
     ctx.lineCap = 'round'
-    ctx.strokeStyle = CONFIG.DRAW_INK
-    ctx.lineWidth = CONFIG.DRAW_WIDTH
 
+    // Each stroke: a black outline with a white glow, then a white core on top.
     for (const s of this.strokes) {
       if (s.length < 2) continue
-      ctx.beginPath()
-      ctx.moveTo(s[0].x, s[0].y)
-      if (s === this.current) {
-        // in-progress: smooth the polyline by curving through segment midpoints
-        for (let i = 1; i < s.length - 1; i++) {
-          const mx = (s[i].x + s[i + 1].x) / 2
-          const my = (s[i].y + s[i + 1].y) / 2
-          ctx.quadraticCurveTo(s[i].x, s[i].y, mx, my)
-        }
-        ctx.lineTo(s[s.length - 1].x, s[s.length - 1].y)
-      } else {
-        // finished + straightened: clean straight segments
-        for (let i = 1; i < s.length; i++) ctx.lineTo(s[i].x, s[i].y)
-      }
-      ctx.stroke()
+      const path = this._strokePath(s)
+
+      ctx.shadowColor = 'rgba(255,255,255,0.9)'
+      ctx.shadowBlur = CONFIG.DRAW_GLOW
+      ctx.strokeStyle = CONFIG.DRAW_OUTLINE_COLOR
+      ctx.lineWidth = CONFIG.DRAW_WIDTH + CONFIG.DRAW_OUTLINE * 2
+      ctx.stroke(path)
+
+      ctx.shadowBlur = 0
+      ctx.strokeStyle = CONFIG.DRAW_CORE_COLOR
+      ctx.lineWidth = CONFIG.DRAW_WIDTH
+      ctx.stroke(path)
     }
 
-    // fingertip cursor: ring when hovering, filled dot while drawing
+    // fingertip cursor: glowing white dot with a black ring (filled while drawing)
     if (this.cursor) {
+      const r = this.pinching ? CONFIG.DRAW_WIDTH / 2 + 1 : 9
+      ctx.shadowColor = 'rgba(255,255,255,0.9)'
+      ctx.shadowBlur = this.pinching ? CONFIG.DRAW_GLOW : 6
       ctx.beginPath()
-      ctx.arc(this.cursor.x, this.cursor.y, 9, 0, Math.PI * 2)
-      ctx.lineWidth = 2
-      ctx.strokeStyle = CONFIG.DRAW_INK
+      ctx.arc(this.cursor.x, this.cursor.y, r, 0, Math.PI * 2)
+      ctx.fillStyle = this.pinching ? CONFIG.DRAW_CORE_COLOR : 'rgba(255,255,255,0.25)'
+      ctx.fill()
+      ctx.shadowBlur = 0
+      ctx.lineWidth = 2.5
+      ctx.strokeStyle = CONFIG.DRAW_OUTLINE_COLOR
       ctx.stroke()
-      if (this.pinching) {
-        ctx.beginPath()
-        ctx.arc(this.cursor.x, this.cursor.y, 4.5, 0, Math.PI * 2)
-        ctx.fillStyle = CONFIG.DRAW_INK
-        ctx.fill()
-      }
     }
   }
 }

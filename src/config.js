@@ -62,8 +62,11 @@ export const CONFIG = {
   NET_SMOOTHING: 0.35, // lerp toward the live hand-driven net each frame
 
   // ---- Draw mode (pinch to draw with your fingertip) ----
-  DRAW_INK: '#1d1d1f', // Apple near-black ink
-  DRAW_WIDTH: 4, // stroke width (CSS px)
+  DRAW_WIDTH: 11, // white core stroke width (CSS px)
+  DRAW_OUTLINE: 3, // black outline thickness on each side of the core
+  DRAW_GLOW: 16, // white glow blur radius
+  DRAW_CORE_COLOR: '#ffffff', // white inside
+  DRAW_OUTLINE_COLOR: '#000000', // black outline
   DRAW_SMOOTHING: 0.5, // fingertip position smoothing (0..1, higher = snappier)
   DRAW_MIN_DIST: 1.5, // min px between recorded points (de-jitter)
   DRAW_PINCH: 0.22, // require a FULL pinch (ratio below this) to put the pen down

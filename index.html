@@ -30,10 +30,10 @@
       /* Transparent WebGL canvas for Orb / Web particle modes. */
       #scene { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 
-      /* Light scrim used only in Draw mode so black ink reads over the feed. */
+      /* Dim scrim used only in Draw mode so the glowing white stroke reads. */
       #scrim {
         position: fixed; inset: 0; pointer-events: none; z-index: 2;
-        background: rgba(255, 255, 255, 0.62);
+        background: rgba(10, 11, 14, 0.5);
         display: none;
       }
       #scrim.show { display: block; }
