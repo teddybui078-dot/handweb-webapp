@@ -15,7 +15,9 @@ Open the app and pick a mode. If the camera can't see the hands a mode needs, a 
 - The web grips each hand (fingertip → wrist) and **stretches, tilts, and shrinks** as you move your hands apart and together, with a slack center sag and a living shimmer.
 
 **Draw** — sketch in the air with one hand.
-- **Pinch** your thumb and index together to put the "pen" down and draw; **release** to lift it. A ring cursor shows where the pen is. Tap **Clear** to wipe the canvas.
+- **Fully pinch** your thumb and index together to put the "pen" down and draw; **release** to lift it. A ring cursor shows where the pen is. Strokes **auto-straighten** on release — a near-straight scribble snaps to a clean line. Tap **Clear** to wipe the canvas.
+
+In **Orb** and **Web**, the detected hands are traced with a glowing white **wireframe skeleton** so you can see exactly what's being tracked.
 
 A **Back** button returns to the dashboard at any time. The whole interface is a clean, Apple-style black-and-white: white UI, near-black text, white light over the feed, black ink in Draw.
 

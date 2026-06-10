@@ -17,6 +17,7 @@ Each feature shipped as its own commit. Source modules live in [`../src`](../src
 | 11 | Monochrome Apple rebrand | `config.js`, `sphere.js`, `index.html` | Black-and-white minimal UI; white light over the feed |
 | 12 | Draw mode | `draw.js`, `main.js`, `index.html` | Pinch-to-draw black ink with your fingertip + Clear |
 | 13 | Orb gesture rework | `config.js`, `hands.js`, `main.js`, `draw.js` | Denser eruption (8k particles), pinch-snap trigger, finger-swipe spin (one-hand orb), full-pinch-only draw |
+| 14 | Splatter + straighten + skeleton | `config.js`, `draw.js`, `hands.js`, `main.js` | Wider burst splatter, Draw auto-straighten (RDP), white hand-skeleton overlay in Orb/Web |
 
 ## Modes
 
