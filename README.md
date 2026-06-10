@@ -11,8 +11,8 @@ Open the app and pick a mode. If the camera can't see the hands a mode needs, a 
 - **Spread two hands apart / together** → the orb grows / shrinks.
 - **Pinch and snap your fingers open** (a quick, aggressive thumb-index pinch then release) → the particles **erupt** outward, drift, then **auto-reform** back into the sphere.
 
-**Web** — a living net is strung between your two hands (needs both hands).
-- The web grips each hand (fingertip → wrist) and **stretches, tilts, and shrinks** as you move your hands apart and together, with a slack center sag and a living shimmer.
+**Web** — a 3D spider web is spun between your two hands (needs both hands).
+- Your ten fingertips are the anchor points; **radial spokes** run from a central hub out to each, with **concentric rings** weaving between them. A wave travels outward so the whole web **undulates in 3D**, and it stretches and reshapes as you move your hands.
 
 **Draw** — sketch in the air with one hand.
 - **Fully pinch** your thumb and index together to put the "pen" down and draw; **release** to lift it. A ring cursor shows where the pen is. Strokes **auto-straighten** on release — a near-straight scribble snaps to a clean line. Tap **Clear** to wipe the canvas.

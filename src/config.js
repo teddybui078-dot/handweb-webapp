@@ -52,14 +52,15 @@ export const CONFIG = {
   // ---- Camera / world ----
   CAMERA_Z: 6, // three.js camera distance
 
-  // ---- Web mode (net strung between the two hands) ----
-  NET_COLS: 14, // grid resolution across the gap (hand A -> hand B)
-  NET_ROWS: 8, // grid resolution along each hand (top -> bottom)
-  NET_SAG: 0.55, // how much the net bows downward at its center (world units)
-  NET_SHIMMER: 0.05, // per-node time-based wobble amplitude
-  NET_POINT_SIZE: 11, // node sprite size
-  NET_LINE_OPACITY: 0.32,
-  NET_SMOOTHING: 0.35, // lerp toward the live hand-driven net each frame
+  // ---- Web mode (a 3D spider web strung between the two hands) ----
+  NET_RINGS: 6, // concentric rings from the hub out to each fingertip
+  NET_WAVE_AMP: 0.55, // z-depth ripple amplitude (world units) — makes it undulate
+  NET_WAVE_SPEED: 2.4, // how fast the ripple travels outward
+  NET_WAVES: 2, // number of wave crests along each spoke
+  NET_SHIMMER: 0.04, // small per-node xy wiggle
+  NET_POINT_SIZE: 13, // node sprite size
+  NET_LINE_OPACITY: 0.5, // strand brightness
+  NET_SMOOTHING: 0.3, // lerp toward the live hand-driven web each frame
 
   // ---- Draw mode (pinch to draw with your fingertip) ----
   DRAW_WIDTH: 11, // white core stroke width (CSS px)

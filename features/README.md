@@ -18,13 +18,14 @@ Each feature shipped as its own commit. Source modules live in [`../src`](../src
 | 12 | Draw mode | `draw.js`, `main.js`, `index.html` | Pinch-to-draw black ink with your fingertip + Clear |
 | 13 | Orb gesture rework | `config.js`, `hands.js`, `main.js`, `draw.js` | Denser eruption (8k particles), pinch-snap trigger, finger-swipe spin (one-hand orb), full-pinch-only draw |
 | 14 | Splatter + straighten + skeleton | `config.js`, `draw.js`, `hands.js`, `main.js` | Wider burst splatter, Draw auto-straighten (RDP), white hand-skeleton overlay in Orb/Web |
+| 15 | Glowing draw stroke + spider web | `config.js`, `draw.js`, `index.html`, `webnet.js` | Bigger glowing-white/black-outlined pen; Web rebuilt as a rippling 3D spider web (spokes + rings to fingertips) |
 
 ## Modes
 
 - **Orb** — the constellation web-sphere (features 4–7); needs both hands.
-- **Web** — a living net strung between your two hands (`webnet.js`); grips each
-  hand fingertip→wrist and stretches/tilts as you move, with a center sag + shimmer.
-  Needs both hands.
+- **Web** — a 3D spider web spun between your two hands (`webnet.js`); radial
+  spokes from a hub to all ten fingertips, concentric rings between them, and an
+  outward-travelling ripple so it undulates in depth. Needs both hands.
 - **Draw** — pinch-to-draw with one hand (`draw.js`); black ink on a frosted canvas
   over the feed, with a ring cursor and a Clear button.
 
