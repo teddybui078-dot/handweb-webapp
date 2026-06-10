@@ -15,14 +15,16 @@ import { CONFIG } from './config.js'
 import { makeGlowTexture } from './sphere.js'
 
 const FINGERTIPS = [4, 8, 12, 16, 20] // thumb, index, middle, ring, pinky
-const SPOKES = FINGERTIPS.length * 2 // ten fingertip anchors (two hands)
+const BASE_ANCHORS = FINGERTIPS.length * 2 // ten fingertip anchors (two hands)
 
 export class WebNet {
   /** @param {import('./sphere.js').WebSphere} sphere shared renderer host */
   constructor(sphere) {
     this.sphere = sphere
     this.rings = CONFIG.NET_RINGS
-    this.count = 1 + SPOKES * this.rings // hub + spoke/ring nodes
+    // extra interpolated spokes between each fingertip pair → denser web
+    this.spokes = BASE_ANCHORS * (1 + CONFIG.NET_SUBSPOKES)
+    this.count = 1 + this.spokes * this.rings // hub + spoke/ring nodes
     this.initialized = false
 
     this.group = new THREE.Group()
@@ -55,13 +57,13 @@ export class WebNet {
     // ---- strands: spokes (hub -> fingertip) + rings (between spokes) ----
     const node = (spoke, ring) => 1 + spoke * this.rings + ring
     this.edges = []
-    for (let s = 0; s < SPOKES; s++) {
+    for (let s = 0; s < this.spokes; s++) {
       this.edges.push(0, node(s, 0)) // hub -> innermost
       for (let r = 0; r < this.rings - 1; r++) this.edges.push(node(s, r), node(s, r + 1))
     }
     for (let r = 0; r < this.rings; r++) {
-      for (let s = 0; s < SPOKES; s++) {
-        this.edges.push(node(s, r), node((s + 1) % SPOKES, r)) // ring loop
+      for (let s = 0; s < this.spokes; s++) {
+        this.edges.push(node(s, r), node((s + 1) % this.spokes, r)) // ring loop
       }
     }
     this.linePositions = new Float32Array(this.edges.length * 3)
@@ -113,9 +115,21 @@ export class WebNet {
 
     // Fixed anchor cycle: hand A's fingertips, then hand B's in reverse — so
     // the ring loops wrap cleanly around both hands.
+    const base = []
+    for (const i of FINGERTIPS) base.push(this._toWorld(a.landmarks[i]))
+    for (let k = FINGERTIPS.length - 1; k >= 0; k--) base.push(this._toWorld(b.landmarks[FINGERTIPS[k]]))
+
+    // Insert interpolated anchors between each consecutive pair (extra spokes).
+    const sub = CONFIG.NET_SUBSPOKES
     const anchors = []
-    for (const i of FINGERTIPS) anchors.push(this._toWorld(a.landmarks[i]))
-    for (let k = FINGERTIPS.length - 1; k >= 0; k--) anchors.push(this._toWorld(b.landmarks[FINGERTIPS[k]]))
+    for (let i = 0; i < base.length; i++) {
+      anchors.push(base[i])
+      const next = base[(i + 1) % base.length]
+      for (let s = 1; s <= sub; s++) {
+        const f = s / (sub + 1)
+        anchors.push({ x: base[i].x + (next.x - base[i].x) * f, y: base[i].y + (next.y - base[i].y) * f })
+      }
+    }
 
     // Hub = centroid of the anchors.
     let hx = 0
@@ -134,9 +148,9 @@ export class WebNet {
     tgt[1] = hy
     tgt[2] = Math.sin(t * CONFIG.NET_WAVE_SPEED) * CONFIG.NET_WAVE_AMP * 0.25
 
-    for (let s = 0; s < SPOKES; s++) {
+    for (let s = 0; s < this.spokes; s++) {
       const anchor = anchors[s]
-      const spokePhase = (s / SPOKES) * Math.PI * 2
+      const spokePhase = (s / this.spokes) * Math.PI * 2
       for (let r = 0; r < this.rings; r++) {
         const f = (r + 1) / this.rings // 0→1 along the spoke (hub→fingertip)
         const i = 1 + s * this.rings + r
