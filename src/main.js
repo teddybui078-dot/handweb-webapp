@@ -12,7 +12,7 @@
 // Press "d" for a debug overlay of the tracked landmarks.
 
 import { startCamera } from './camera.js'
-import { HandTracker, FlickDetector, drawDebug, handDistance, handsMidpoint } from './hands.js'
+import { HandTracker, PinchSnapDetector, drawDebug, handDistance, handsMidpoint } from './hands.js'
 import { WebSphere } from './sphere.js'
 import { WebNet } from './webnet.js'
 import { FingerDraw } from './draw.js'
@@ -41,7 +41,7 @@ const scrim = document.getElementById('scrim')
 const drawCanvas = document.getElementById('draw')
 
 const HINTS = {
-  orb: '<span><b>Spread hands</b> — grow</span><span><b>Hands together</b> — shrink</span><span><b>Flick open</b> — erupt</span>',
+  orb: '<span><b>Move finger</b> — spin</span><span><b>Two hands apart / together</b> — size</span><span><b>Pinch &amp; snap</b> — erupt</span>',
   web: '<span><b>Move hands apart</b> — stretch the web</span><span><b>Together</b> — gather it in</span>',
   draw: '<span><b>Pinch</b> to draw</span><span><b>Release</b> to lift the pen</span><span><b>Clear</b> to reset</span>',
 }
@@ -51,7 +51,7 @@ const tracker = new HandTracker()
 const sphere = new WebSphere(sceneCanvas)
 const webnet = new WebNet(sphere)
 const draw = new FingerDraw(drawCanvas)
-const flick = new FlickDetector()
+const pinchSnap = new PinchSnapDetector()
 const burst = new BurstSystem(sphere.count, sphere.base)
 
 let mode = 'dashboard' // 'dashboard' | 'orb' | 'web'
@@ -64,8 +64,10 @@ let curRadius = CONFIG.RADIUS_DEFAULT
 let curX = 0
 let curY = 0
 let vizOpacity = 1 // master fade for the active visualization
-let rotVelX = 0 // smoothed finger-driven spin (pitch)
-let rotVelY = 0 // smoothed finger-driven spin (yaw)
+let rotRateX = 0 // finger-driven spin rate, rad/s, with inertia (pitch)
+let rotRateY = 0 // rad/s (yaw)
+let prevTipX = null // last index-fingertip screen position (for velocity)
+let prevTipY = null
 
 // ---- debug landmark overlay ----
 const debugCanvas = document.createElement('canvas')
@@ -119,9 +121,9 @@ async function enterMode(m, card) {
   scrim.classList.toggle('show', isDraw)
   drawCanvas.classList.toggle('show', isDraw)
   clearBtn.classList.toggle('show', isDraw)
-  noHandsText.textContent = isDraw
-    ? 'Show your hand to the camera'
-    : 'Show both hands to the camera'
+  noHandsText.textContent = m === 'web'
+    ? 'Show both hands to the camera'
+    : 'Show your hand to the camera'
   if (m === 'web') webnet.reset()
   if (isDraw) draw.clear()
 }
@@ -164,19 +166,10 @@ function orbTargets(hands) {
   return { radius, nx: mid.x, ny: mid.y }
 }
 
-/** Index-finger pointing direction in screen space (x mirrored), normalized. */
-function fingerPointing(hand) {
-  const mcp = hand.landmarks[5]
-  const tip = hand.landmarks[8]
-  let px = -(tip.x - mcp.x) // mirror x to match the flipped video
-  let py = tip.y - mcp.y
-  const len = Math.hypot(px, py) || 1
-  return { x: px / len, y: py / len }
-}
-
 function updateOrb(hands, handsPresent, now, dt) {
   let targetRadius = curRadius
-  let pointing = null
+  let fingerVX = 0 // index-fingertip screen velocity (units/s)
+  let fingerVY = 0
 
   if (mode === 'dashboard') {
     // gentle breathing backdrop, centered
@@ -184,35 +177,54 @@ function updateOrb(hands, handsPresent, now, dt) {
     curX = lerp(curX, 0, CONFIG.POSITION_SMOOTHING)
     curY = lerp(curY, 0, CONFIG.POSITION_SMOOTHING)
     vizOpacity = lerp(vizOpacity, 1, 0.1)
+    prevTipX = prevTipY = null
   } else if (handsPresent) {
-    const flicked = flick.update(hands, now)
-    if (flicked && !burst.isBursting) burst.trigger(sphere.positions, curRadius, now)
-    const t = orbTargets(hands)
-    targetRadius = t.radius
-    const ndcX = (1 - t.nx) * 2 - 1
-    const ndcY = -(t.ny * 2 - 1)
-    const world = sphere.ndcToWorld(ndcX, ndcY)
+    // aggressive pinch + release erupts the orb
+    const snapped = pinchSnap.update(hands, now)
+    if (snapped && !burst.isBursting) burst.trigger(sphere.positions, curRadius, now)
+
+    // size needs both hands; one hand just holds the current size
+    let nx, ny
+    if (hands.length >= 2) {
+      const t = orbTargets(hands)
+      targetRadius = t.radius
+      nx = t.nx
+      ny = t.ny
+    } else {
+      nx = hands[0].centroid.x
+      ny = hands[0].centroid.y
+    }
+    const world = sphere.ndcToWorld((1 - nx) * 2 - 1, -(ny * 2 - 1))
     curX = lerp(curX, world.x, CONFIG.POSITION_SMOOTHING)
     curY = lerp(curY, world.y, CONFIG.POSITION_SMOOTHING)
     vizOpacity = lerp(vizOpacity, 1, 0.15)
-    // point your finger to spin the orb that way (paused mid-burst)
-    if (!burst.isActive) pointing = fingerPointing(hands[0])
+
+    // move your index finger to spin the orb (swipe-to-rotate, with inertia)
+    const tip = hands[0].landmarks[8]
+    const sx = 1 - tip.x // mirror x to match the flipped video
+    const sy = tip.y
+    if (prevTipX !== null && dt > 0) {
+      fingerVX = (sx - prevTipX) / dt
+      fingerVY = (sy - prevTipY) / dt
+    }
+    prevTipX = sx
+    prevTipY = sy
   } else {
     // orb mode, no hands → hold place and fade out
     vizOpacity = lerp(vizOpacity, 0, 0.15)
+    prevTipX = prevTipY = null
   }
 
-  // Finger pointing → spin: yaw follows left/right, pitch follows up/down.
-  const targetVelX = pointing ? pointing.y * CONFIG.ROT_SPEED : 0
-  const targetVelY = pointing ? pointing.x * CONFIG.ROT_SPEED : 0
-  rotVelX = lerp(rotVelX, targetVelX, CONFIG.ROT_SMOOTHING)
-  rotVelY = lerp(rotVelY, targetVelY, CONFIG.ROT_SMOOTHING)
+  // Spin: low-pass the finger velocity into a spin rate, then coast (inertia).
+  // yaw follows horizontal motion, pitch follows vertical.
+  const damp = Math.pow(CONFIG.ROT_DAMP, dt * 60)
+  rotRateY = clamp(rotRateY * damp + fingerVX * CONFIG.ROT_GAIN * (1 - damp), -CONFIG.ROT_MAX, CONFIG.ROT_MAX)
+  rotRateX = clamp(rotRateX * damp + fingerVY * CONFIG.ROT_GAIN * (1 - damp), -CONFIG.ROT_MAX, CONFIG.ROT_MAX)
 
   curRadius = lerp(curRadius, targetRadius, CONFIG.RADIUS_SMOOTHING)
   burst.update(sphere, curRadius, now, dt)
   sphere.setWorldPosition(curX, curY, 0)
-  // frame-rate-independent spin (rotVel is calibrated per 1/60s)
-  if (mode !== 'dashboard') sphere.addRotation(rotVelX * dt * 60, rotVelY * dt * 60)
+  if (mode !== 'dashboard') sphere.addRotation(rotRateX * dt, rotRateY * dt)
   sphere.flushPoints()
   sphere.syncLines()
   sphere.applyMasterOpacity(vizOpacity)
@@ -240,8 +252,8 @@ function loop() {
   lastFrame = now
 
   const hands = tracker.detect(video, now)
-  // Draw needs one hand; Orb/Web need both.
-  const need = mode === 'draw' ? 1 : 2
+  // Web needs both hands; Orb and Draw work with one.
+  const need = mode === 'web' ? 2 : 1
   const handsPresent = hands.length >= need
 
   // "No hands detected" only matters inside an experience.
@@ -256,7 +268,7 @@ function loop() {
 }
 
 // Debug hook (window.__handweb) for triggering bursts / inspecting state.
-window.__handweb = { sphere, webnet, draw, burst, flick, tracker, enterMode, exitToDashboard }
+window.__handweb = { sphere, webnet, draw, burst, pinchSnap, tracker, enterMode, exitToDashboard }
 
 // Idle orb renders immediately as the dashboard backdrop; detection no-ops
 // until a mode is chosen and the camera + landmarker start.

@@ -134,48 +134,51 @@ export class HandTracker {
   }
 }
 
-// ---- flick detection -------------------------------------------------------
+// ---- pinch-snap detection --------------------------------------------------
 
 /**
- * Detects the "flick": a hand that was recently pinched/closed snapping open
- * into a spread palm within FLICK_WINDOW_MS. State is kept per handedness so
- * each hand can flick independently, and a global cooldown debounces repeats.
+ * Detects an aggressive "pinch snap": the thumb and index pinch fully together
+ * (ratio < PINCH_CLOSE) and then snap apart (ratio > PINCH_OPEN) within
+ * SNAP_WINDOW_MS — the short window is what makes it "aggressive"; a slow
+ * pinch/release won't fire. State is per handedness so either hand can snap,
+ * with a global cooldown debouncing repeats.
  */
-export class FlickDetector {
+export class PinchSnapDetector {
   constructor() {
-    this.pinchedAt = new Map() // handedness -> timestamp it was last closed
-    this.lastFlick = -Infinity
+    this.pinchedAt = new Map() // handedness -> timestamp of the full pinch
+    this.lastBurst = -Infinity
   }
 
   /**
-   * @returns {object|null} the hand that flicked this frame, or null
+   * @returns {object|null} the hand that snapped this frame, or null
    */
   update(hands, now) {
-    let flicked = null
+    let snapped = null
     const present = new Set()
 
     for (const hand of hands) {
       present.add(hand.handedness)
-      const closed = hand.isPinched && hand.extendedCount <= 1
+      const ratio = hand.pinchRatio
 
-      if (closed) {
-        this.pinchedAt.set(hand.handedness, now)
-      } else if (hand.isOpen) {
+      if (ratio < CONFIG.PINCH_CLOSE) {
+        // mark the moment of a full pinch (keep the earliest in this cycle)
+        if (!this.pinchedAt.has(hand.handedness)) this.pinchedAt.set(hand.handedness, now)
+      } else if (ratio > CONFIG.PINCH_OPEN) {
         const since = this.pinchedAt.get(hand.handedness)
         if (
           since != null &&
-          now - since <= CONFIG.FLICK_WINDOW_MS &&
-          now - this.lastFlick >= CONFIG.BURST_COOLDOWN_MS
+          now - since <= CONFIG.SNAP_WINDOW_MS &&
+          now - this.lastBurst >= CONFIG.BURST_COOLDOWN_MS
         ) {
-          flicked = hand
-          this.lastFlick = now
-          this.pinchedAt.delete(hand.handedness)
+          snapped = hand
+          this.lastBurst = now
         }
+        this.pinchedAt.delete(hand.handedness)
       }
 
-      // expire stale pinch memory
+      // expire a pinch that was held too long to be a snap
       const t = this.pinchedAt.get(hand.handedness)
-      if (t != null && now - t > CONFIG.FLICK_WINDOW_MS) {
+      if (t != null && now - t > CONFIG.SNAP_WINDOW_MS) {
         this.pinchedAt.delete(hand.handedness)
       }
     }
@@ -185,7 +188,7 @@ export class FlickDetector {
       if (!present.has(key)) this.pinchedAt.delete(key)
     }
 
-    return flicked
+    return snapped
   }
 }
 

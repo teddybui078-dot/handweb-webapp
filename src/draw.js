@@ -61,9 +61,10 @@ export class FingerDraw {
       this.smooth.y += (y - this.smooth.y) * CONFIG.DRAW_SMOOTHING
     }
     this.cursor = { x: this.smooth.x, y: this.smooth.y }
-    this.pinching = hand.isPinched
+    // pen is down only on a FULL pinch, not a loose one
+    this.pinching = hand.pinchRatio < CONFIG.DRAW_PINCH
 
-    if (hand.isPinched) {
+    if (this.pinching) {
       if (!this.current) {
         this.current = []
         this.strokes.push(this.current)
