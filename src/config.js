@@ -53,7 +53,7 @@ export const CONFIG = {
   CAMERA_Z: 6, // three.js camera distance
 
   // ---- Web mode (a 3D spider web strung between the two hands) ----
-  NET_RINGS: 6, // concentric rings from the hub out to each fingertip
+  NET_RINGS: 11, // concentric rings from the hub out to each fingertip (denser web)
   NET_WAVE_AMP: 0.55, // z-depth ripple amplitude (world units) — makes it undulate
   NET_WAVE_SPEED: 2.4, // how fast the ripple travels outward
   NET_WAVES: 2, // number of wave crests along each spoke
