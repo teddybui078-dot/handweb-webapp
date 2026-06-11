@@ -27,19 +27,25 @@ export const CONFIG = {
   ROT_DAMP: 0.91, // inertia: spin coasts and decays when the finger stops (higher = smoother)
   ROT_IDLE: 0.0015, // gentle auto-spin on the dashboard backdrop
 
-  // Map normalized hand-distance [DIST_MIN, DIST_MAX] -> [RADIUS_MIN, RADIUS_MAX]
-  DIST_MIN: 0.12, // hands basically touching (fraction of frame width)
-  DIST_MAX: 0.75, // hands spread wide
+  // Per-axis sizing: horizontal hand separation -> width, vertical -> height.
+  // Spans are screen fractions; mapped onto [RADIUS_MIN, RADIUS_MAX].
+  SIZE_SPAN_MIN: 0.05, // hands close on this axis -> smallest
+  SIZE_SPAN_MAX: 0.62, // hands far apart on this axis -> largest
 
   // ---- Gesture detection ----
   PINCH_THRESHOLD: 0.35, // thumb-index distance / hand-span ratio to count as pinched
   OPEN_FINGERS_REQUIRED: 4, // extended fingers to count as an open palm
 
-  // Burst trigger: an aggressive pinch + release (snap).
-  PINCH_CLOSE: 0.26, // ratio below this = a full pinch (fingers together)
-  PINCH_OPEN: 0.55, // ratio above this = released
-  SNAP_WINDOW_MS: 320, // pinch -> release must complete this fast to count as a snap
-  BURST_COOLDOWN_MS: 1000, // ignore repeat snaps during this period
+  // Burst trigger: a deliberate, aggressive pinch + release (snap).
+  PINCH_CLOSE: 0.17, // ratio below this = a tight full pinch (fingers together)
+  PINCH_OPEN: 0.62, // ratio above this = clearly released
+  SNAP_WINDOW_MS: 300, // pinch -> release must complete this fast to count as a snap
+  SNAP_MIN_HOLD_MS: 50, // must stay pinched at least this long (rejects 1-frame jitter)
+  BURST_COOLDOWN_MS: 1400, // ignore repeat snaps during this period
+
+  // ---- Landmark smoothing (One-Euro filter) — calms jittery tracking ----
+  SMOOTH_MIN_CUTOFF: 1.4, // lower = smoother when the hand is still
+  SMOOTH_BETA: 0.5, // higher = less lag when the hand moves fast
 
   // ---- Burst / reform physics ----
   BURST_SPEED: 9, // outward velocity magnitude (splatters wider across screen)

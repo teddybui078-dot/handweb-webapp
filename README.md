@@ -8,8 +8,10 @@ Open the app and pick a mode. If the camera can't see the hands a mode needs, a 
 
 **Orb** — a constellation web-sphere (works with one or two hands).
 - **Move your index finger** → the orb spins the way you swipe, with inertia.
-- **Spread two hands apart / together** → the orb grows / shrinks.
-- **Pinch and snap your fingers open** (a quick, aggressive thumb-index pinch then release) → the particles **erupt** outward, drift, then **auto-reform** back into the sphere.
+- **Move two hands apart / together** → shape the orb in any direction: horizontal separation sets its **width**, vertical separation sets its **height**, so you can make it round, wide, tall, or big — smoothly and precisely.
+- **Pinch and snap your fingers open** (a deliberate, deep thumb-index pinch then a fast release) → the particles **erupt** outward, drift, then **auto-reform** back into the sphere. (A partial or accidental pinch won't trigger it.)
+
+Hand tracking is smoothed (One-Euro filter) so the orb and web stay calm instead of twitching with every jitter.
 
 **Web** — a 3D spider web is spun between your two hands (needs both hands).
 - Your ten fingertips are the anchor points; **radial spokes** run from a central hub out to each (with extra interpolated spokes between them), and **concentric rings** weave between them. The web is alive — spokes **swirl** into spirals, rings **breathe** in and out, and a wave travels outward so it **undulates in 3D** — and it stretches and reshapes as you move your hands.
@@ -39,8 +41,8 @@ npm run preview  # preview the production build
 | Mode | Gesture | Effect |
 | --- | --- | --- |
 | Orb | Move your index finger | Spin the orb (swipe, with inertia) |
-| Orb | Two hands, spread apart / together | Grow / shrink the sphere |
-| Orb | Pinch & snap your fingers open (fast) | Erupt the particles |
+| Orb | Two hands — horizontal / vertical separation | Shape its width / height (any direction) |
+| Orb | Deliberate deep pinch & fast snap open | Erupt the particles |
 | Web | Move both hands apart / together | Stretch / reshape the web |
 | Any | Required hand(s) not visible | "No hands detected" — viz fades out |
 

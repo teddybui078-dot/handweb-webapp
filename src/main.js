@@ -12,7 +12,7 @@
 // Press "d" for a debug overlay of the tracked landmarks.
 
 import { startCamera } from './camera.js'
-import { HandTracker, PinchSnapDetector, drawDebug, drawHandSkeleton, handDistance, handsMidpoint } from './hands.js'
+import { HandTracker, PinchSnapDetector, drawDebug, drawHandSkeleton } from './hands.js'
 import { WebSphere } from './sphere.js'
 import { WebNet } from './webnet.js'
 import { BurstSystem } from './physics.js'
@@ -53,8 +53,10 @@ let started = false // camera + tracker initialized
 let debug = false
 let lastFrame = performance.now()
 
-// smoothed orb state
-let curRadius = CONFIG.RADIUS_DEFAULT
+// smoothed orb state — per-axis scale (ellipsoid)
+let curSX = CONFIG.RADIUS_DEFAULT
+let curSY = CONFIG.RADIUS_DEFAULT
+let curSZ = CONFIG.RADIUS_DEFAULT
 let curX = 0
 let curY = 0
 let vizOpacity = 1 // master fade for the active visualization
@@ -149,44 +151,57 @@ for (const [card, m] of [[cardOrb, 'orb'], [cardWeb, 'web']]) {
 }
 
 // ---- orb helpers ----
-/** Two-hand distance → radius, midpoint → screen position. */
-function orbTargets(hands) {
-  const d = handDistance(hands[0], hands[1])
-  const radius = mapRange(d, CONFIG.DIST_MIN, CONFIG.DIST_MAX, CONFIG.RADIUS_MIN, CONFIG.RADIUS_MAX)
-  const mid = handsMidpoint(hands[0], hands[1])
-  return { radius, nx: mid.x, ny: mid.y }
+/**
+ * Per-axis ellipsoid size from the two hands: horizontal separation → width,
+ * vertical separation → height. Spans + midpoint are in cover-mapped screen
+ * space, so it matches exactly what you see and lets you shape the orb any way.
+ */
+function orbTargets(hands, vmap) {
+  const a = normToScreen(hands[0].centroid.x, hands[0].centroid.y, vmap)
+  const b = normToScreen(hands[1].centroid.x, hands[1].centroid.y, vmap)
+  const dx = Math.abs(a.x - b.x) / vmap.W // horizontal span (fraction of width)
+  const dy = Math.abs(a.y - b.y) / vmap.H // vertical span (fraction of height)
+  return {
+    sx: mapRange(dx, CONFIG.SIZE_SPAN_MIN, CONFIG.SIZE_SPAN_MAX, CONFIG.RADIUS_MIN, CONFIG.RADIUS_MAX),
+    sy: mapRange(dy, CONFIG.SIZE_SPAN_MIN, CONFIG.SIZE_SPAN_MAX, CONFIG.RADIUS_MIN, CONFIG.RADIUS_MAX),
+    mx: (a.x + b.x) / 2 / vmap.W, // screen-normalized midpoint
+    my: (a.y + b.y) / 2 / vmap.H,
+  }
 }
 
 function updateOrb(hands, handsPresent, now, dt, vmap) {
-  let targetRadius = curRadius
+  let tSX = curSX // target per-axis scale
+  let tSY = curSY
   let fingerVX = 0 // index-fingertip screen velocity (units/s)
   let fingerVY = 0
 
   if (mode === 'dashboard') {
     // gentle breathing backdrop, centered
-    targetRadius = CONFIG.RADIUS_DEFAULT + Math.sin(now / 900) * 0.08
+    const breath = CONFIG.RADIUS_DEFAULT + Math.sin(now / 900) * 0.05
+    tSX = tSY = breath
     curX = lerp(curX, 0, CONFIG.POSITION_SMOOTHING)
     curY = lerp(curY, 0, CONFIG.POSITION_SMOOTHING)
     vizOpacity = lerp(vizOpacity, 1, 0.1)
     prevTipX = prevTipY = null
   } else if (handsPresent) {
-    // aggressive pinch + release erupts the orb
+    // a deliberate pinch + snap erupts the orb
     const snapped = pinchSnap.update(hands, now)
-    if (snapped && !burst.isBursting) burst.trigger(sphere.positions, curRadius, now)
+    if (snapped && !burst.isBursting) burst.trigger(sphere.positions, 1, now)
 
-    // size needs both hands; one hand just holds the current size
-    let nx, ny
+    // two hands set the per-axis size; one hand just follows / holds size
+    let mx, my
     if (hands.length >= 2) {
-      const t = orbTargets(hands)
-      targetRadius = t.radius
-      nx = t.nx
-      ny = t.ny
+      const t = orbTargets(hands, vmap)
+      tSX = t.sx
+      tSY = t.sy
+      mx = t.mx
+      my = t.my
     } else {
-      nx = hands[0].centroid.x
-      ny = hands[0].centroid.y
+      const sc = normToScreen(hands[0].centroid.x, hands[0].centroid.y, vmap)
+      mx = sc.x / vmap.W
+      my = sc.y / vmap.H
     }
-    const ndc = normToNDC(nx, ny, vmap)
-    const world = sphere.ndcToWorld(ndc.x, ndc.y)
+    const world = sphere.ndcToWorld(mx * 2 - 1, -(my * 2 - 1))
     curX = lerp(curX, world.x, CONFIG.POSITION_SMOOTHING)
     curY = lerp(curY, world.y, CONFIG.POSITION_SMOOTHING)
     vizOpacity = lerp(vizOpacity, 1, 0.15)
@@ -208,15 +223,27 @@ function updateOrb(hands, handsPresent, now, dt, vmap) {
     prevTipX = prevTipY = null
   }
 
+  // while erupting, force the shape round (and generously sized) so the
+  // splatter is clean and fills the screen regardless of the orb's size
+  if (burst.isActive) {
+    const u = Math.max((tSX + tSY) / 2, 0.9)
+    tSX = u
+    tSY = u
+  }
+
   // Spin: low-pass the finger velocity into a spin rate, then coast (inertia).
-  // yaw follows horizontal motion, pitch follows vertical.
   const damp = Math.pow(CONFIG.ROT_DAMP, dt * 60)
   rotRateY = clamp(rotRateY * damp + fingerVX * CONFIG.ROT_GAIN * (1 - damp), -CONFIG.ROT_MAX, CONFIG.ROT_MAX)
   rotRateX = clamp(rotRateX * damp + fingerVY * CONFIG.ROT_GAIN * (1 - damp), -CONFIG.ROT_MAX, CONFIG.ROT_MAX)
 
-  curRadius = lerp(curRadius, targetRadius, CONFIG.RADIUS_SMOOTHING)
-  burst.update(sphere, curRadius, now, dt)
+  // smooth the per-axis scale toward the target (accurate but never jumpy)
+  curSX = lerp(curSX, tSX, CONFIG.RADIUS_SMOOTHING)
+  curSY = lerp(curSY, tSY, CONFIG.RADIUS_SMOOTHING)
+  curSZ = lerp(curSZ, (tSX + tSY) / 2, CONFIG.RADIUS_SMOOTHING)
+
+  burst.update(sphere, 1, now, dt) // particle positions live in unit space
   sphere.setWorldPosition(curX, curY, 0)
+  sphere.setScale(curSX, curSY, curSZ)
   if (mode !== 'dashboard') sphere.addRotation(rotRateX * dt, rotRateY * dt)
   sphere.flushPoints()
   sphere.syncLines()

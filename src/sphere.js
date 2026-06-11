@@ -202,6 +202,11 @@ export class WebSphere {
     this.group.rotation.y += dy
   }
 
+  /** Per-axis size: shapes the unit-sphere geometry into an ellipsoid. */
+  setScale(sx, sy, sz) {
+    this.group.scale.set(sx, sy, sz)
+  }
+
   /**
    * Convert normalized-device coordinates (-1..1) to world coordinates on the
    * z=0 plane, accounting for the camera FOV and aspect. Lets hand positions

@@ -92,12 +92,50 @@ export function handsMidpoint(a, b) {
   return { x: (a.centroid.x + b.centroid.x) / 2, y: (a.centroid.y + b.centroid.y) / 2 }
 }
 
+// ---- landmark smoothing (One-Euro filter) ----------------------------------
+//
+// MediaPipe landmarks jitter frame to frame; that jitter makes the orb/web feel
+// twitchy and can false-trigger the pinch. A One-Euro filter smooths the jitter
+// when the hand is still but barely lags when it moves fast — the best of both.
+
+const smoothingAlpha = (cutoff, dt) => {
+  const tau = 1 / (2 * Math.PI * cutoff)
+  return 1 / (1 + tau / dt)
+}
+
+class OneEuro {
+  constructor(minCutoff, beta) {
+    this.minCutoff = minCutoff
+    this.beta = beta
+    this.x = null // last filtered value
+    this.dx = 0 // last filtered derivative
+  }
+  filter(v, dt) {
+    if (this.x === null) {
+      this.x = v
+      return v
+    }
+    const dv = (v - this.x) / dt
+    this.dx = this.dx + smoothingAlpha(1, dt) * (dv - this.dx)
+    const cutoff = this.minCutoff + this.beta * Math.abs(this.dx)
+    this.x = this.x + smoothingAlpha(cutoff, dt) * (v - this.x)
+    return this.x
+  }
+}
+
+const makeHandFilters = () => ({
+  x: Array.from({ length: 21 }, () => new OneEuro(CONFIG.SMOOTH_MIN_CUTOFF, CONFIG.SMOOTH_BETA)),
+  y: Array.from({ length: 21 }, () => new OneEuro(CONFIG.SMOOTH_MIN_CUTOFF, CONFIG.SMOOTH_BETA)),
+})
+
 // ---- tracker ---------------------------------------------------------------
 
 export class HandTracker {
   constructor() {
     this.landmarker = null
     this.lastVideoTime = -1
+    this.lastTs = -1
+    this.filters = new Map() // handedness -> per-landmark One-Euro filters
     this.hands = [] // array of analyzeHand() results, 0..2 entries
   }
 
@@ -126,11 +164,32 @@ export class HandTracker {
     if (video.currentTime === this.lastVideoTime) return this.hands
     this.lastVideoTime = video.currentTime
 
+    let dt = this.lastTs < 0 ? 1 / 60 : (timestampMs - this.lastTs) / 1000
+    dt = Math.min(Math.max(dt, 1 / 240), 0.1) // clamp against stalls
+    this.lastTs = timestampMs
+
     const result = this.landmarker.detectForVideo(video, timestampMs)
     const lmSets = result?.landmarks || []
-    this.hands = lmSets.map((lm, i) =>
-      analyzeHand(lm, result?.handedness?.[i]?.[0]?.categoryName || `hand${i}`)
-    )
+    const handed = lmSets.map((_, i) => result?.handedness?.[i]?.[0]?.categoryName || `hand${i}`)
+
+    // forget filters for hands that left so they don't smooth from stale state
+    const present = new Set(handed)
+    for (const key of this.filters.keys()) if (!present.has(key)) this.filters.delete(key)
+
+    this.hands = lmSets.map((lm, i) => {
+      const key = handed[i]
+      let f = this.filters.get(key)
+      if (!f) {
+        f = makeHandFilters()
+        this.filters.set(key, f)
+      }
+      const smoothed = lm.map((p, j) => ({
+        x: f.x[j].filter(p.x, dt),
+        y: f.y[j].filter(p.y, dt),
+        z: p.z,
+      }))
+      return analyzeHand(smoothed, key)
+    })
     return this.hands
   }
 }
@@ -166,9 +225,11 @@ export class PinchSnapDetector {
         if (!this.pinchedAt.has(hand.handedness)) this.pinchedAt.set(hand.handedness, now)
       } else if (ratio > CONFIG.PINCH_OPEN) {
         const since = this.pinchedAt.get(hand.handedness)
+        const held = since != null ? now - since : 0
         if (
           since != null &&
-          now - since <= CONFIG.SNAP_WINDOW_MS &&
+          held >= CONFIG.SNAP_MIN_HOLD_MS && // held long enough to be deliberate
+          held <= CONFIG.SNAP_WINDOW_MS && // released fast enough to be a snap
           now - this.lastBurst >= CONFIG.BURST_COOLDOWN_MS
         ) {
           snapped = hand
