@@ -53,10 +53,8 @@ let started = false // camera + tracker initialized
 let debug = false
 let lastFrame = performance.now()
 
-// smoothed orb state — per-axis scale (ellipsoid)
-let curSX = CONFIG.RADIUS_DEFAULT
-let curSY = CONFIG.RADIUS_DEFAULT
-let curSZ = CONFIG.RADIUS_DEFAULT
+// smoothed orb state — uniform size (stays a sphere)
+let curScale = CONFIG.RADIUS_DEFAULT
 let curX = 0
 let curY = 0
 let vizOpacity = 1 // master fade for the active visualization
@@ -152,33 +150,29 @@ for (const [card, m] of [[cardOrb, 'orb'], [cardWeb, 'web']]) {
 
 // ---- orb helpers ----
 /**
- * Per-axis ellipsoid size from the two hands: horizontal separation → width,
- * vertical separation → height. Spans + midpoint are in cover-mapped screen
- * space, so it matches exactly what you see and lets you shape the orb any way.
+ * Uniform size from the distance between the two hands (cover-mapped screen
+ * space, so it matches what you see), plus the midpoint for position. The orb
+ * stays a sphere — hands apart = bigger, together = smaller.
  */
 function orbTargets(hands, vmap) {
   const a = normToScreen(hands[0].centroid.x, hands[0].centroid.y, vmap)
   const b = normToScreen(hands[1].centroid.x, hands[1].centroid.y, vmap)
-  const dx = Math.abs(a.x - b.x) / vmap.W // horizontal span (fraction of width)
-  const dy = Math.abs(a.y - b.y) / vmap.H // vertical span (fraction of height)
+  const dist = Math.hypot(a.x - b.x, a.y - b.y) / vmap.W
   return {
-    sx: mapRange(dx, CONFIG.SIZE_SPAN_MIN, CONFIG.SIZE_SPAN_MAX, CONFIG.RADIUS_MIN, CONFIG.RADIUS_MAX),
-    sy: mapRange(dy, CONFIG.SIZE_SPAN_MIN, CONFIG.SIZE_SPAN_MAX, CONFIG.RADIUS_MIN, CONFIG.RADIUS_MAX),
+    size: mapRange(dist, CONFIG.SIZE_SPAN_MIN, CONFIG.SIZE_SPAN_MAX, CONFIG.RADIUS_MIN, CONFIG.RADIUS_MAX),
     mx: (a.x + b.x) / 2 / vmap.W, // screen-normalized midpoint
     my: (a.y + b.y) / 2 / vmap.H,
   }
 }
 
 function updateOrb(hands, handsPresent, now, dt, vmap) {
-  let tSX = curSX // target per-axis scale
-  let tSY = curSY
+  let tSize = curScale // target uniform size
   let fingerVX = 0 // index-fingertip screen velocity (units/s)
   let fingerVY = 0
 
   if (mode === 'dashboard') {
     // gentle breathing backdrop, centered
-    const breath = CONFIG.RADIUS_DEFAULT + Math.sin(now / 900) * 0.05
-    tSX = tSY = breath
+    tSize = CONFIG.RADIUS_DEFAULT + Math.sin(now / 900) * 0.05
     curX = lerp(curX, 0, CONFIG.POSITION_SMOOTHING)
     curY = lerp(curY, 0, CONFIG.POSITION_SMOOTHING)
     vizOpacity = lerp(vizOpacity, 1, 0.1)
@@ -188,12 +182,11 @@ function updateOrb(hands, handsPresent, now, dt, vmap) {
     const snapped = pinchSnap.update(hands, now)
     if (snapped && !burst.isBursting) burst.trigger(sphere.positions, 1, now)
 
-    // two hands set the per-axis size; one hand just follows / holds size
+    // two hands set the size (distance); one hand just follows / holds size
     let mx, my
     if (hands.length >= 2) {
       const t = orbTargets(hands, vmap)
-      tSX = t.sx
-      tSY = t.sy
+      tSize = t.size
       mx = t.mx
       my = t.my
     } else {
@@ -223,27 +216,20 @@ function updateOrb(hands, handsPresent, now, dt, vmap) {
     prevTipX = prevTipY = null
   }
 
-  // while erupting, force the shape round (and generously sized) so the
-  // splatter is clean and fills the screen regardless of the orb's size
-  if (burst.isActive) {
-    const u = Math.max((tSX + tSY) / 2, 0.9)
-    tSX = u
-    tSY = u
-  }
+  // while erupting, grow to a generous size so the splatter fills the screen
+  if (burst.isActive) tSize = Math.max(tSize, 0.9)
 
   // Spin: low-pass the finger velocity into a spin rate, then coast (inertia).
   const damp = Math.pow(CONFIG.ROT_DAMP, dt * 60)
   rotRateY = clamp(rotRateY * damp + fingerVX * CONFIG.ROT_GAIN * (1 - damp), -CONFIG.ROT_MAX, CONFIG.ROT_MAX)
   rotRateX = clamp(rotRateX * damp + fingerVY * CONFIG.ROT_GAIN * (1 - damp), -CONFIG.ROT_MAX, CONFIG.ROT_MAX)
 
-  // smooth the per-axis scale toward the target (accurate but never jumpy)
-  curSX = lerp(curSX, tSX, CONFIG.RADIUS_SMOOTHING)
-  curSY = lerp(curSY, tSY, CONFIG.RADIUS_SMOOTHING)
-  curSZ = lerp(curSZ, (tSX + tSY) / 2, CONFIG.RADIUS_SMOOTHING)
+  // smooth the size toward the target (accurate but never jumpy)
+  curScale = lerp(curScale, tSize, CONFIG.RADIUS_SMOOTHING)
 
   burst.update(sphere, 1, now, dt) // particle positions live in unit space
   sphere.setWorldPosition(curX, curY, 0)
-  sphere.setScale(curSX, curSY, curSZ)
+  sphere.setScale(curScale, curScale, curScale) // uniform → stays a sphere
   if (mode !== 'dashboard') sphere.addRotation(rotRateX * dt, rotRateY * dt)
   sphere.flushPoints()
   sphere.syncLines()

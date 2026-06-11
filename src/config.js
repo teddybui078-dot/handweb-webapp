@@ -27,21 +27,21 @@ export const CONFIG = {
   ROT_DAMP: 0.91, // inertia: spin coasts and decays when the finger stops (higher = smoother)
   ROT_IDLE: 0.0015, // gentle auto-spin on the dashboard backdrop
 
-  // Per-axis sizing: horizontal hand separation -> width, vertical -> height.
-  // Spans are screen fractions; mapped onto [RADIUS_MIN, RADIUS_MAX].
-  SIZE_SPAN_MIN: 0.05, // hands close on this axis -> smallest
-  SIZE_SPAN_MAX: 0.62, // hands far apart on this axis -> largest
+  // Uniform sizing: the distance between the hands sets the sphere's size.
+  // Distance is a screen fraction; mapped onto [RADIUS_MIN, RADIUS_MAX].
+  SIZE_SPAN_MIN: 0.08, // hands close together -> smallest
+  SIZE_SPAN_MAX: 0.7, // hands far apart -> largest
 
   // ---- Gesture detection ----
   PINCH_THRESHOLD: 0.35, // thumb-index distance / hand-span ratio to count as pinched
   OPEN_FINGERS_REQUIRED: 4, // extended fingers to count as an open palm
 
-  // Burst trigger: a deliberate, aggressive pinch + release (snap).
-  PINCH_CLOSE: 0.17, // ratio below this = a tight full pinch (fingers together)
-  PINCH_OPEN: 0.62, // ratio above this = clearly released
-  SNAP_WINDOW_MS: 300, // pinch -> release must complete this fast to count as a snap
-  SNAP_MIN_HOLD_MS: 50, // must stay pinched at least this long (rejects 1-frame jitter)
-  BURST_COOLDOWN_MS: 1400, // ignore repeat snaps during this period
+  // Burst trigger: a deliberate pinch + release (snap).
+  PINCH_CLOSE: 0.24, // ratio below this = a full pinch (fingers together)
+  PINCH_OPEN: 0.5, // ratio above this = released
+  SNAP_WINDOW_MS: 420, // pinch -> release must complete this fast to count as a snap
+  SNAP_MIN_HOLD_MS: 40, // must stay pinched at least this long (rejects 1-frame jitter)
+  BURST_COOLDOWN_MS: 1100, // ignore repeat snaps during this period
 
   // ---- Landmark smoothing (One-Euro filter) — calms jittery tracking ----
   SMOOTH_MIN_CUTOFF: 1.4, // lower = smoother when the hand is still
