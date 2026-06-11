@@ -13,6 +13,7 @@
 import * as THREE from 'three'
 import { CONFIG } from './config.js'
 import { makeGlowTexture } from './sphere.js'
+import { normToNDC } from './coords.js'
 
 const FINGERTIPS = [4, 8, 12, 16, 20] // thumb, index, middle, ring, pinky
 const BASE_ANCHORS = FINGERTIPS.length * 2 // ten fingertip anchors (two hands)
@@ -92,13 +93,14 @@ export class WebNet {
     this.initialized = false
   }
 
-  /** Mirrored normalized landmark → world position on the z=0 plane. */
-  _toWorld(lm) {
-    return this.sphere.ndcToWorld((1 - lm.x) * 2 - 1, -(lm.y * 2 - 1))
+  /** Normalized landmark → world position on the z=0 plane (cover-aware). */
+  _toWorld(lm, m) {
+    const ndc = normToNDC(lm.x, lm.y, m)
+    return this.sphere.ndcToWorld(ndc.x, ndc.y)
   }
 
   /** Rebuild the web from two hands. No-op (re-arms a snap) with < 2 hands. */
-  update(hands, now, dt) {
+  update(hands, now, dt, m) {
     if (hands.length < 2) {
       this.initialized = false
       return
@@ -107,7 +109,7 @@ export class WebNet {
     // Order hands left→right so the anchor cycle is stable.
     let a = hands[0]
     let b = hands[1]
-    if (this._toWorld(a.centroid).x > this._toWorld(b.centroid).x) {
+    if (this._toWorld(a.centroid, m).x > this._toWorld(b.centroid, m).x) {
       const tmp = a
       a = b
       b = tmp
@@ -116,8 +118,8 @@ export class WebNet {
     // Fixed anchor cycle: hand A's fingertips, then hand B's in reverse — so
     // the ring loops wrap cleanly around both hands.
     const base = []
-    for (const i of FINGERTIPS) base.push(this._toWorld(a.landmarks[i]))
-    for (let k = FINGERTIPS.length - 1; k >= 0; k--) base.push(this._toWorld(b.landmarks[FINGERTIPS[k]]))
+    for (const i of FINGERTIPS) base.push(this._toWorld(a.landmarks[i], m))
+    for (let k = FINGERTIPS.length - 1; k >= 0; k--) base.push(this._toWorld(b.landmarks[FINGERTIPS[k]], m))
 
     // Insert interpolated anchors between each consecutive pair (extra spokes).
     const sub = CONFIG.NET_SUBSPOKES

@@ -19,6 +19,7 @@
 
 import { HandLandmarker, FilesetResolver } from '@mediapipe/tasks-vision'
 import { CONFIG } from './config.js'
+import { normToScreen } from './coords.js'
 
 const WASM_BASE =
   'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm'
@@ -107,8 +108,8 @@ export class HandTracker {
       runningMode: 'VIDEO',
       numHands: 2,
       minHandDetectionConfidence: 0.5,
-      minHandPresenceConfidence: 0.5,
-      minTrackingConfidence: 0.5,
+      minHandPresenceConfidence: 0.4,
+      minTrackingConfidence: 0.4, // stickier tracking — keep the hand once found
     })
     return this
   }
@@ -206,11 +207,12 @@ const HAND_CONNECTIONS = [
 
 /**
  * Draw the white wireframe skeleton (bones + joints) of each tracked hand onto
- * a 2D canvas, mirrored to match the flipped video. Used in Orb / Web modes so
- * the detected fingers are visibly "wired".
+ * a 2D canvas, using the cover-aware video mapping so the lines stay locked to
+ * the hand. Used in Orb / Web modes so the detected fingers are visibly "wired".
+ * @param {object} m video mapping from makeVideoMapping()
  */
-export function drawHandSkeleton(ctx, hands, width, height) {
-  ctx.clearRect(0, 0, width, height)
+export function drawHandSkeleton(ctx, hands, m) {
+  ctx.clearRect(0, 0, m.W, m.H)
   ctx.lineWidth = CONFIG.HAND_LINE_WIDTH
   ctx.lineJoin = 'round'
   ctx.lineCap = 'round'
@@ -223,13 +225,16 @@ export function drawHandSkeleton(ctx, hands, width, height) {
     const lm = hand.landmarks
     ctx.beginPath()
     for (const [a, b] of HAND_CONNECTIONS) {
-      ctx.moveTo((1 - lm[a].x) * width, lm[a].y * height)
-      ctx.lineTo((1 - lm[b].x) * width, lm[b].y * height)
+      const pa = normToScreen(lm[a].x, lm[a].y, m)
+      const pb = normToScreen(lm[b].x, lm[b].y, m)
+      ctx.moveTo(pa.x, pa.y)
+      ctx.lineTo(pb.x, pb.y)
     }
     ctx.stroke()
     for (const p of lm) {
+      const s = normToScreen(p.x, p.y, m)
       ctx.beginPath()
-      ctx.arc((1 - p.x) * width, p.y * height, CONFIG.HAND_JOINT_SIZE, 0, Math.PI * 2)
+      ctx.arc(s.x, s.y, CONFIG.HAND_JOINT_SIZE, 0, Math.PI * 2)
       ctx.fill()
     }
   }

@@ -16,6 +16,7 @@ import { HandTracker, PinchSnapDetector, drawDebug, drawHandSkeleton, handDistan
 import { WebSphere } from './sphere.js'
 import { WebNet } from './webnet.js'
 import { BurstSystem } from './physics.js'
+import { makeVideoMapping, normToScreen, normToNDC } from './coords.js'
 import { CONFIG } from './config.js'
 
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v))
@@ -156,7 +157,7 @@ function orbTargets(hands) {
   return { radius, nx: mid.x, ny: mid.y }
 }
 
-function updateOrb(hands, handsPresent, now, dt) {
+function updateOrb(hands, handsPresent, now, dt, vmap) {
   let targetRadius = curRadius
   let fingerVX = 0 // index-fingertip screen velocity (units/s)
   let fingerVY = 0
@@ -184,15 +185,17 @@ function updateOrb(hands, handsPresent, now, dt) {
       nx = hands[0].centroid.x
       ny = hands[0].centroid.y
     }
-    const world = sphere.ndcToWorld((1 - nx) * 2 - 1, -(ny * 2 - 1))
+    const ndc = normToNDC(nx, ny, vmap)
+    const world = sphere.ndcToWorld(ndc.x, ndc.y)
     curX = lerp(curX, world.x, CONFIG.POSITION_SMOOTHING)
     curY = lerp(curY, world.y, CONFIG.POSITION_SMOOTHING)
     vizOpacity = lerp(vizOpacity, 1, 0.15)
 
     // move your index finger to spin the orb (swipe-to-rotate, with inertia)
     const tip = hands[0].landmarks[8]
-    const sx = 1 - tip.x // mirror x to match the flipped video
-    const sy = tip.y
+    const sc = normToScreen(tip.x, tip.y, vmap)
+    const sx = sc.x / vmap.W // cover-aware, mirrored screen position (0..1)
+    const sy = sc.y / vmap.H
     if (prevTipX !== null && dt > 0) {
       fingerVX = (sx - prevTipX) / dt
       fingerVY = (sy - prevTipY) / dt
@@ -222,9 +225,9 @@ function updateOrb(hands, handsPresent, now, dt) {
   sphere.render(mode === 'dashboard' ? CONFIG.ROT_IDLE : 0)
 }
 
-function updateWeb(hands, handsPresent, now, dt) {
+function updateWeb(hands, handsPresent, now, dt, vmap) {
   vizOpacity = lerp(vizOpacity, handsPresent ? 1 : 0, 0.15)
-  if (handsPresent) webnet.update(hands, now, dt)
+  if (handsPresent) webnet.update(hands, now, dt, vmap)
   webnet.applyMasterOpacity(vizOpacity)
   sphere.render(0) // draws the scene (the visible web group)
 }
@@ -236,6 +239,7 @@ function loop() {
   lastFrame = now
 
   const hands = tracker.detect(video, now)
+  const vmap = makeVideoMapping(video) // cover-aware landmark → screen mapping
   // Web needs both hands; Orb works with one.
   const need = mode === 'web' ? 2 : 1
   const handsPresent = hands.length >= need
@@ -244,12 +248,12 @@ function loop() {
   const inExperience = mode !== 'dashboard'
   noHands.classList.toggle('show', inExperience && !handsPresent)
 
-  if (mode === 'web') updateWeb(hands, handsPresent, now, dt)
-  else updateOrb(hands, handsPresent, now, dt)
+  if (mode === 'web') updateWeb(hands, handsPresent, now, dt, vmap)
+  else updateOrb(hands, handsPresent, now, dt, vmap)
 
   // Wire the detected fingers with a skeleton in Orb / Web; clear otherwise.
   if (mode === 'orb' || mode === 'web') {
-    drawHandSkeleton(handCtx, hands, handCanvas.width, handCanvas.height)
+    drawHandSkeleton(handCtx, hands, vmap)
   } else {
     handCtx.clearRect(0, 0, handCanvas.width, handCanvas.height)
   }
